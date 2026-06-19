@@ -56,15 +56,17 @@ isolation and returns a structured result, keeping the main thread focused:
 
 ## Starting a Workflow
 
-Every feature/bug/refactor begins with a Jira ticket:
+Every feature/bug/refactor begins with a ticket in the Project Profile's **ticketing**
+system (example: Jira):
 
-1. Ask the user for the Jira ticket ID (e.g., `DATA-123`).
-2. Create a branch from master: `git checkout master && git pull && git checkout -b <ticket-id>-<slug>`
+1. Ask the user for the ticket ID (e.g., `DATA-123`).
+2. Create a branch from the Profile's **base branch** (example: `master`):
+   `git checkout <base_branch> && git pull && git checkout -b <ticket-id>-<slug>`
    - Slug: kebab-case, concise, derived from the ticket/intent. Example: `DATA-123-new-patient-orders`.
 3. Spec directory: `<specs>/<dd-mm-yy>-<feature-name>/`, where `<specs>` is the specs
-   location in the Project Profile (`dbt/specs/`).
+   location in the Project Profile (example: `dbt/specs/`).
    - Example: branch created 28/05/26 → `dbt/specs/28-05-26-new-patient-orders/`.
-4. Record the Jira ticket ID and branch name at the top of `requirements.md`.
+4. Record the ticket ID and branch name at the top of `requirements.md`.
 5. Proceed to the **Discover** phase.
 
 (Standalone Review and Standalone Docs skip ticket/branch creation and operate on the
@@ -112,8 +114,9 @@ they become specs.
    features are mixed. This is the TDD "define the tests, work backwards" step — the
    criteria are the contract the change must satisfy.
 
-**Post to Jira:** Update the ticket description (via the `jira_update_issue` MCP tool)
-with: branch name, requirement IDs + one-line summaries, and models impacted.
+**Post to the ticketing system** (Project Profile; example: Jira via the `jira_update_issue`
+MCP tool): update the ticket description with the branch name, requirement IDs + one-line
+summaries, and models impacted.
 
 **Output:** `specs/<feature-name>/requirements.md`
 
@@ -155,7 +158,8 @@ outcome?* dbt tests (from `test-author`) are unit-level; this validates the actu
 
 1. Delegate to the **`output-validator`** sub-agent with the changed models and the spec's
    Validation Criteria (`VAL-xxx`). It builds the models, checks schema vs design, diffs
-   the data against the prod/main baseline (`audit_helper`), evaluates each criterion, and
+   the data against the baseline (the Profile's **output-validation baseline**, diffed with
+   the Profile's **data-diff tool** — example: `audit_helper`), evaluates each criterion, and
    returns a **Validation Report** including requirement traceability and a
    **Self-validatable: YES/NO** marker.
 2. **Branch on the report:**
@@ -244,14 +248,14 @@ Commit the work, push the branch, open the PR, and interpret CI to completion.
 1. **Confirm local health first.** Models build and tests pass locally, and the change
    satisfies `AGENTS.md` (§9 PR gate). Do not push a known-red branch.
 2. **Commit & push.** Stage the change plus any `_issues.md` from Review. Use a concise
-   message referencing the Jira ticket (e.g. `DATA-123: <summary>`). Push with
+   message referencing the ticket (e.g. `DATA-123: <summary>`). Push with
    `git push -u origin <branch>`.
 3. **Open the PR** with `gh pr create`, using the repo's PR template. Title carries the
    ticket ID; body summarizes the change and links the spec. (Ask before opening if the
    user has not already approved shipping.)
 4. **Interpret CI.** Delegate to the **`ci-interpreter`** sub-agent to watch the PR's
-   checks (dbt build/test + Deep Hub null/uniqueness and AI data-output checks) to
-   completion and return a PASS/FAIL/PENDING summary.
+   checks (the Profile's **CI system** — example: dbt build/test + Deep Hub null/uniqueness
+   and AI data-output checks) to completion and return a PASS/FAIL/PENDING summary.
 5. **Act on the result:**
    - **PASS** → report the green PR and stop.
    - **FAIL (code/test)** → fix here, then re-push and re-interpret.

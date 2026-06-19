@@ -19,9 +19,10 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
 1. **Build the changed models** into the dev target so their output exists to inspect.
 2. **Schema check vs design.** Confirm expected columns, types, and grain are present;
    flag any drift from `design.md`.
-3. **Data delta vs baseline.** Use `audit_helper` (already installed):
-   - `audit_helper.compare_relations` for row- and column-level diffs (dev vs prod).
-   - `audit_helper.compare_queries` for targeted metric/aggregate comparisons.
+3. **Data delta vs baseline.** Use the **data-diff tool** named in the AGENTS.md Project
+   Profile (default/example: `audit_helper`):
+   - `compare_relations` for row- and column-level diffs (dev vs the baseline).
+   - `compare_queries` for targeted metric/aggregate comparisons.
    Report rows **added / removed / changed and characterize them** (representative samples
    + counts — not just totals), PK uniqueness, null-rate deltas on key columns, and
    headline-metric reconciliation.

@@ -57,8 +57,9 @@ When discovery reveals a whole area is undocumented, capture orientation at the 
 
 - **Schema/folder README** (`dbt/models/<area>/README.md`): what this area is for, the
   brands/regions it covers, and the key entities — so a reader knows where to look.
-- Tie naming back to `dbt/README.md` (`[brand]_[region]__[entity]`): spell out the brand
-  and region a model serves when it is not obvious from context.
+- Tie naming back to the Project Profile's **model naming pattern** (example:
+  `[brand]_[region]__[entity]`, with codes in `dbt/README.md`): spell out what each
+  segment means for a model when it is not obvious from context.
 
 ## Inline SQL comments (AGENTS.md §10)
 

@@ -6,7 +6,8 @@ maintainability, correctness, and analyst usability — **not** the objective ru
 
 ## Inputs
 
-- The models modified on the current git branch (diff against `master`).
+- The models modified on the current git branch (diff against the Project Profile's **base
+  branch** — example: `master`).
 - The spec (`requirements.md`) if one exists, for intent.
 - The **Validation Report** from the `output-validator`, **if available** (it exists when
   Review follows Validate Output in the full workflow; a standalone review may not have
