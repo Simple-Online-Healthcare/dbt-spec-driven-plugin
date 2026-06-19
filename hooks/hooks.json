@@ -1,0 +1,60 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -f AGENTS.md && jq -n --rawfile c AGENTS.md '{additionalContext: (\"Mandatory project rules are defined in AGENTS.md (highest authority). Obey them in all dbt work:\\n\\n\" + $c)}' || true",
+            "timeout": 15,
+            "statusMessage": "Loading AGENTS.md rules",
+            "enabled": true
+          },
+          {
+            "type": "command",
+            "command": "if (Test-Path AGENTS.md) { @{ additionalContext = \"Mandatory project rules are defined in AGENTS.md (highest authority). Obey them in all dbt work:`n`n\" + (Get-Content -Raw AGENTS.md) } | ConvertTo-Json -Compress }",
+            "timeout": 15,
+            "statusMessage": "Loading AGENTS.md rules",
+            "enabled": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' '{\"systemMessage\":\"Context is about to compact. Ensure the active spec in specs/ (requirements.md / design.md) and any <model>_issues.md capture in-progress decisions before they are summarized.\"}'",
+            "timeout": 10,
+            "enabled": true
+          },
+          {
+            "type": "command",
+            "command": "Write-Output '{\"systemMessage\":\"Context is about to compact. Ensure the active spec in specs/ (requirements.md / design.md) and any <model>_issues.md capture in-progress decisions before they are summarized.\"}'",
+            "timeout": 10,
+            "enabled": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && files=$(git diff --name-only 2>/dev/null) && { test -n \"$files\" && mkdir -p .cortex/notes && { printf '\\n## %s — %s\\n' \"$(date +%Y-%m-%d_%H:%M)\" \"$branch\"; printf '%s\\n' \"$files\" | sed 's/^/- /'; } >> \".cortex/notes/session-log.md\"; } || true",
+            "timeout": 15,
+            "enabled": true
+          },
+          {
+            "type": "command",
+            "command": "$b = (git rev-parse --abbrev-ref HEAD 2>$null); $f = (git diff --name-only 2>$null); if ($f) { New-Item -ItemType Directory -Force -Path .cortex/notes | Out-Null; \"`n## $(Get-Date -Format 'yyyy-MM-dd_HH:mm') — $b\" | Add-Content -Path .cortex/notes/session-log.md; ($f | ForEach-Object { \"- $_\" }) | Add-Content -Path .cortex/notes/session-log.md }",
+            "timeout": 15,
+            "enabled": true
+          }
+        ]
+      }
+    ]
+  }
+}

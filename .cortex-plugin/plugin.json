@@ -1,0 +1,5 @@
+{
+  "name": "dbt-spec-driven",
+  "version": "0.1.0",
+  "description": "Spec-driven dbt development workflow. One workflow skill (spec-driven) backed by mandatory standards in AGENTS.md and context-isolated sub-agents for discovery, test authoring, output validation, peer review, and CI interpretation. Built for Cortex; portable to other agent tools via a thin manifest/hooks adapter."
+}
