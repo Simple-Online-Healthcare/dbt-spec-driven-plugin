@@ -292,9 +292,114 @@ Keep edits scoped to the models in play — do not bulk-document unrelated areas
 
 ---
 
-## Gates
+## Gate Protocol
 
-Before every **GATE**:
+A gate is a phase-boundary checkpoint. Its behavior depends on the execution mode.
+
+### Interactive mode (default):
 - Present the artifact (findings, spec, or design) clearly.
-- Ask: "Does this look correct? Should I proceed?"
-- Do not continue past a gate without explicit approval.
+- Use `ask_user_question` with options: `"Approve and proceed"` / `"Needs changes"`.
+- The question MUST name what phase is completing and what phase starts next.
+- Do NOT proceed past a gate without the user selecting "Approve and proceed".
+
+### Scheduled mode:
+- Do NOT call `ask_user_question`.
+- Verify the transition checklist for the completing phase (every item satisfied).
+- If all satisfied → log `auto-approved (scheduled)` in the Gate column of
+  `workflow-state.md` and proceed.
+- If any item unsatisfied → treat as a failure and enter the Retry Protocol.
+- This is NOT "skip the gate" — it is "the gate checks itself instead of asking a human."
+
+### Both modes:
+- Sub-agent delegations are NEVER skipped regardless of mode.
+- Artifacts (requirements.md, design.md, workflow-state.md) are NEVER skipped.
+- The gate enforces *completeness*, not just *permission*.
+
+---
+
+## Execution Mode
+
+This skill supports two execution modes. The mode is determined by how the workflow is
+invoked:
+
+| Mode | Trigger | Gate Behavior | Failure Behavior |
+|------|---------|---------------|------------------|
+| **interactive** (default) | User invokes skill directly | `ask_user_question` — hard stop until human approves | Present to user |
+| **scheduled** | Invoked with `mode: scheduled` in the prompt, or from an automation/cron context | Self-checkpoint — auto-approve when artifacts are complete | Retry up to 3× then hard-stop |
+
+### Scheduled Mode Rules
+
+When running in scheduled mode, the following rules OVERRIDE the interactive gate behavior
+but **nothing else changes** — all phases, sub-agent delegations, artifacts, and transition
+checklists remain mandatory.
+
+#### 1. Gates become self-checkpoints
+
+Instead of calling `ask_user_question`, the agent:
+1. Verifies ALL items in the phase's transition checklist are satisfied (artifact exists,
+   sub-agent was delegated, workflow-state.md is updated).
+2. If all satisfied → logs `auto-approved (scheduled)` in the Gate column of
+   `workflow-state.md` and proceeds.
+3. If any item is NOT satisfied → treat as a failure (see Retry Protocol below).
+
+#### 2. Retry Protocol (max 3 attempts per problem)
+
+When the agent encounters a failure — build error, test failure, peer-reviewer blocking
+issue, output-validator failure, or incomplete transition checklist:
+
+1. **Identify the problem** — log a one-line description in `workflow-state.md` under a
+   `## Retry Log` section.
+2. **Attempt a fix** — apply the most targeted fix available (rewrite the failing SQL,
+   adjust the test, address the peer-review issue).
+3. **Re-run the failing check** — rebuild, re-test, re-delegate to the sub-agent.
+4. **Evaluate the result:**
+   - If the **same problem recurs** (same error message, same failing test, same blocking
+     issue) → increment the retry counter for that problem.
+   - If a **different failure** appears → this is progress. Reset the counter — it's a new
+     problem with its own 3 attempts.
+5. **After 3 failed attempts at the same problem** → HARD STOP. Write a summary to
+   `workflow-state.md` with status `blocked` and the retry log, then terminate the
+   workflow. Do NOT attempt a 4th fix or skip the failing phase.
+
+"Same problem" means: the same test name fails, the same build error occurs, or the same
+peer-reviewer issue is raised after the attempted fix. A *different* failure — even if it
+appears in the same phase — is treated as a new problem with fresh attempts.
+
+#### 3. Workflow type restrictions
+
+Scheduled mode is designed for tasks where all Validation Criteria are **Objective**
+(ground truth exists). If the `output-validator` returns `Self-validatable: NO`:
+- The workflow HARD STOPS immediately (this is not retryable — it requires human judgment).
+- Log the subjective criteria that need sign-off to `workflow-state.md`.
+
+#### 4. Review phase in scheduled mode
+
+The `peer-reviewer` sub-agent still runs. In scheduled mode:
+- **High severity issues** → the agent MUST attempt to fix them (counts toward retry
+  protocol if the fix fails).
+- **Medium severity issues** → the agent SHOULD attempt to fix them.
+- **Low severity / Suggestions** → log to `_issues.md`, do not fix.
+- If a High issue persists after 3 fix attempts → HARD STOP.
+
+#### 5. Ship phase in scheduled mode
+
+- Never merge automatically (same as interactive).
+- Open the PR and interpret CI.
+- On CI PASS → report success and stop (PR is ready for human merge).
+- On CI FAIL (code/test) → retry (same 3-attempt protocol).
+- On CI FAIL (data/infra) → HARD STOP (not retryable by the agent).
+
+#### 6. Workflow-state.md in scheduled mode
+
+The Retry Log section is appended to `workflow-state.md`:
+
+```markdown
+## Retry Log
+
+| Attempt | Phase | Problem | Action Taken | Result |
+|---------|-------|---------|--------------|--------|
+| 1 | Implement | `not_null_test_order_id` failed | Added COALESCE for NULL order_ids | Different error (progress) |
+| 2 | Implement | `unique_test_order_sk` failed | Fixed surrogate key logic | Same error |
+| 3 | Implement | `unique_test_order_sk` failed | Rewrote dedup logic | Same error |
+| — | — | HARD STOP | 3 attempts exhausted on same problem | blocked |
+```

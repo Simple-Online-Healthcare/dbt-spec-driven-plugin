@@ -20,18 +20,56 @@
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "specdir=$(find dbt/specs -maxdepth 1 -type d 2>/dev/null | sort | tail -1); if [ -n \"$specdir\" ] && [ -f \"$specdir/workflow-state.md\" ]; then blocked=$(grep -c '| blocked' \"$specdir/workflow-state.md\" 2>/dev/null || echo 0); if [ \"$blocked\" -gt 0 ]; then printf '{\"additionalContext\":\"HARD STOP: workflow-state.md shows a BLOCKED phase. The workflow has failed after max retries. Do NOT continue. Terminate and report the blocked state.\"}'; else printf '{\"additionalContext\":\"SUB-AGENT COMPLETED. You are now at a GATE. MANDATORY next steps: (1) Update workflow-state.md to mark this phase complete and sub-agent as delegated. (2) Verify ALL transition checklist items for this phase are satisfied. (3) In interactive mode: use ask_user_question for approval. In scheduled mode: auto-approve ONLY if all checklist items pass; otherwise enter Retry Protocol. Do NOT skip ahead without completing the gate.\"}'; fi; else printf '{\"additionalContext\":\"Sub-agent completed. If a workflow is active, ensure workflow-state.md exists and is updated before proceeding.\"}'; fi",
+            "timeout": 10,
+            "statusMessage": "Checking workflow gate",
+            "enabled": true
+          },
+          {
+            "type": "command",
+            "command": "$specdir = (Get-ChildItem -Path dbt/specs -Directory -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1).FullName; if ($specdir -and (Test-Path \"$specdir/workflow-state.md\")) { $blocked = (Select-String -Path \"$specdir/workflow-state.md\" -Pattern '\\| blocked' -Quiet); if ($blocked) { Write-Output '{\"additionalContext\":\"HARD STOP: workflow-state.md shows a BLOCKED phase. The workflow has failed after max retries. Do NOT continue. Terminate and report the blocked state.\"}' } else { Write-Output '{\"additionalContext\":\"SUB-AGENT COMPLETED. You are now at a GATE. MANDATORY next steps: (1) Update workflow-state.md to mark this phase complete and sub-agent as delegated. (2) Verify ALL transition checklist items for this phase are satisfied. (3) In interactive mode: use ask_user_question for approval. In scheduled mode: auto-approve ONLY if all checklist items pass; otherwise enter Retry Protocol. Do NOT skip ahead without completing the gate.\"}' } } else { Write-Output '{\"additionalContext\":\"Sub-agent completed. If a workflow is active, ensure workflow-state.md exists and is updated before proceeding.\"}' }",
+            "timeout": 10,
+            "statusMessage": "Checking workflow gate",
+            "enabled": true
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "printf '%s' '{\"systemMessage\":\"Context is about to compact. Ensure the active spec in specs/ (requirements.md / design.md) and any <model>_issues.md capture in-progress decisions before they are summarized.\"}'",
+            "command": "specdir=$(find dbt/specs -maxdepth 1 -type d 2>/dev/null | sort | tail -1); if [ -n \"$specdir\" ] && [ -f \"$specdir/workflow-state.md\" ]; then blocked=$(grep -c '| blocked' \"$specdir/workflow-state.md\" 2>/dev/null || echo 0); pending=$(grep -c '| pending' \"$specdir/workflow-state.md\" 2>/dev/null || echo 0); inprog=$(grep -c '| in-progress' \"$specdir/workflow-state.md\" 2>/dev/null || echo 0); if [ \"$blocked\" -gt 0 ]; then printf '{\"systemMessage\":\"HARD STOP: workflow-state.md shows BLOCKED status. Do NOT continue past this phase. The workflow has failed after max retries. Terminate and report.\"}'; else printf '{\"systemMessage\":\"WORKFLOW STATE AUDIT (pre-compaction): %s phases pending, %s in-progress in %s/workflow-state.md. Before continuing after compaction: (1) Read workflow-state.md to determine your current phase. (2) Complete the current phase transition checklist before moving on. (3) All sub-agent delegations and gates must be satisfied per the skill instructions. (4) In scheduled mode: gates auto-approve only when ALL checklist items pass.\"}' \"$pending\" \"$inprog\" \"$specdir\"; fi; else printf '{\"systemMessage\":\"Context is about to compact. Ensure the active spec in specs/ (requirements.md / design.md) and any _issues.md capture in-progress decisions before they are summarized. If a workflow is active, create workflow-state.md per the skill instructions.\"}'; fi",
             "timeout": 10,
             "enabled": true
           },
           {
             "type": "command",
-            "command": "Write-Output '{\"systemMessage\":\"Context is about to compact. Ensure the active spec in specs/ (requirements.md / design.md) and any <model>_issues.md capture in-progress decisions before they are summarized.\"}'",
+            "command": "$specdir = (Get-ChildItem -Path dbt/specs -Directory -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1).FullName; if ($specdir -and (Test-Path \"$specdir/workflow-state.md\")) { $content = Get-Content -Raw \"$specdir/workflow-state.md\"; $blocked = ($content -match '\\| blocked'); $pending = ([regex]::Matches($content, '\\| pending')).Count; $inprog = ([regex]::Matches($content, '\\| in-progress')).Count; if ($blocked) { Write-Output '{\"systemMessage\":\"HARD STOP: workflow-state.md shows BLOCKED status. Do NOT continue past this phase. Terminate and report.\"}' } else { Write-Output \"{`\"systemMessage`\":`\"WORKFLOW STATE AUDIT (pre-compaction): $pending phases pending, $inprog in-progress. Read workflow-state.md after compaction to determine current phase. Complete all transition checklist items before proceeding. In scheduled mode: gates auto-approve only when ALL checklist items pass.`\"}\" } } else { Write-Output '{\"systemMessage\":\"Context is about to compact. Ensure the active spec captures in-progress decisions. If a workflow is active, create workflow-state.md per the skill instructions.\"}' }",
+            "timeout": 10,
+            "enabled": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "specdir=$(find dbt/specs -maxdepth 1 -type d 2>/dev/null | sort | tail -1); if [ -n \"$specdir\" ] && [ -f \"$specdir/workflow-state.md\" ]; then incomplete=$(grep -E '\\| (pending|in-progress)' \"$specdir/workflow-state.md\" 2>/dev/null | grep -v '^#' | wc -l | tr -d ' '); if [ \"$incomplete\" -gt 0 ]; then printf '{\"additionalContext\":\"WARNING: Agent is stopping with %s incomplete phases in workflow-state.md (%s). If this is a scheduled run, the workflow did not complete successfully. Check workflow-state.md for blocked status or retry log.\"}' \"$incomplete\" \"$specdir/workflow-state.md\"; fi; fi",
+            "timeout": 10,
+            "enabled": true
+          },
+          {
+            "type": "command",
+            "command": "$specdir = (Get-ChildItem -Path dbt/specs -Directory -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1).FullName; if ($specdir -and (Test-Path \"$specdir/workflow-state.md\")) { $incomplete = (Select-String -Path \"$specdir/workflow-state.md\" -Pattern '\\| (pending|in-progress)' | Where-Object { $_.Line -notmatch '^#' }).Count; if ($incomplete -gt 0) { Write-Output \"{`\"additionalContext`\":`\"WARNING: Agent stopping with $incomplete incomplete phases. Check workflow-state.md for status.`\"}\" } }",
             "timeout": 10,
             "enabled": true
           }
