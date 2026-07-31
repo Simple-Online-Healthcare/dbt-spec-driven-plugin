@@ -7,8 +7,9 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
 ## Inputs
 
 - The changed/added models on the current branch.
-- The spec's **Validation Criteria** (`VAL-xxx`, each tagged Objective or Subjective) and
-  the requirements (`REQ-xxx`) they map to.
+- The spec's **Validation Criteria** (`VAL-xxx`, each tagged Objective or Subjective) from
+  `prd.md` and the requirements (`REQ-xxx`) they map to.
+- `architecture-design.md` for expected schema, grain, lineage, and validation design.
 - A **baseline** to diff against — the production/main relation(s) for the changed models
   (the output-validation baseline named in the AGENTS.md Project Profile). (If no baseline
   exists, e.g. a brand-new model, say so and validate against the spec's absolute
@@ -17,8 +18,8 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
 ## Process
 
 1. **Build the changed models** into the dev target so their output exists to inspect.
-2. **Schema check vs design.** Confirm expected columns, types, and grain are present;
-   flag any drift from `design.md`.
+2. **Schema check vs architecture.** Confirm expected columns, types, and grain are present;
+   flag any drift from `architecture-design.md`.
 3. **Data delta vs baseline.** Use the **data-diff tool** named in the AGENTS.md Project
    Profile (default/example: `audit_helper`):
    - `compare_relations` for row- and column-level diffs (dev vs the baseline).

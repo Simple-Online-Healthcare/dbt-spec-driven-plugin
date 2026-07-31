@@ -35,6 +35,7 @@
 | Materialization defaults | staging `view`, intermediate `view`, marts `table` |
 | Incremental runtime threshold | ~10 min |
 | Reusable-logic location | `/macros` |
+| Models location | `dbt/models/` (also where `<model>_issues.md` review ledgers are written) |
 | Lint config | `dbt/.sqlfluff` (SQLFluff) |
 | Specs location | `dbt/specs/` (spec dirs named `<dd-mm-yy>-<name>/`) |
 | Base branch | `master` |
@@ -42,6 +43,12 @@
 | CI system | dbt Cloud + Deep Hub; results surface as GitHub checks, polled via `gh` |
 | Data-diff tool | `audit_helper` (`compare_relations` / `compare_queries`) |
 | Output-validation baseline | production/main relations (diffed with the data-diff tool) |
+| PR template | `.github/pull_request_template.md` |
+| Context ledger | `docs/data-team-context.md` (durable, team-shared project context) |
+| Local notes location | `.cortex/notes/` (gitignored session telemetry) |
+| Downstream consumer repos | the BI/semantic-layer repo and any pipeline repo reading these models |
+| Handoff location | `docs/model-context-handoffs/` |
+| Max file size | ~1000 lines (structural review threshold) |
 
 ---
 
@@ -166,7 +173,7 @@ Before a PR can merge:
 - All models build successfully.
 - All tests pass.
 - Documentation is complete (§4).
-- SQL passes **SQLFluff** linting (config path in the Project Profile).
+- SQL passes the linter named in the Project Profile's **lint config**.
 - Outputs are validated against the spec's Validation Criteria — objective criteria pass,
   and any subjective criteria have explicit human sign-off.
 

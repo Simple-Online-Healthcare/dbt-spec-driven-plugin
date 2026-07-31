@@ -121,7 +121,7 @@ is producing duplicate rows due to missing dedup on the source refresh timestamp
 → SubagentStop hook injects gate reminder
 → Agent verifies checklist: findings presented ✓, workflow-state.md updated ✓
 → Logs: auto-approved (scheduled)
-→ Specify+Implement phase: writes requirements.md, implements fix, delegates test-author
+→ Specify+Implement phase: writes the four spec documents, implements fix, delegates test-author
 → SubagentStop hook injects gate reminder
 → output-validator runs, returns Self-validatable: YES (all Objective, all pass)
 → Auto-proceeds to Review

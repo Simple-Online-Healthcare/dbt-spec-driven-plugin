@@ -13,6 +13,12 @@ A description passes if a new analyst, reading only it, can answer:
 
 If the description only repeats the model name or lists columns, it fails.
 
+> **Note on examples:** the model, column, and domain names throughout this reference
+> (patients, orders, shipments, brand/region-prefixed model names) are **illustrative
+> only** — they come from the project this plugin originated in. Follow the Project
+> Profile's **model naming pattern** and your own domain; copy the *shape* of these
+> examples, not their names.
+
 ## Model-level YAML pattern
 
 ```yaml

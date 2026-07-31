@@ -1,0 +1,19 @@
+---
+description: Mandatory dbt engineering rules — highest authority in this repo
+alwaysApply: true
+---
+
+# AGENTS.md — Mandatory Rules
+
+`AGENTS.md` at the repo root is the **highest-authority** file in this repository.
+Every agent, skill, and sub-agent MUST obey it. Rules are **blocking**: if a change
+violates AGENTS.md, do not proceed — fix it or stop and surface it to the user.
+
+Before any dbt work (models, macros, tests, specs):
+
+1. **Read** `AGENTS.md` when you need rule details (layers, naming, tests, materializations).
+2. **Validate** every change against AGENTS.md before marking work complete.
+3. **Never restate** AGENTS.md rules in other files — point to it instead.
+
+The spec-driven workflow skill orchestrates phases; AGENTS.md holds the engineering rules.
+Canonical skill: `{{PLUGIN_ROOT}}/skills/spec-driven/SKILL.md`.

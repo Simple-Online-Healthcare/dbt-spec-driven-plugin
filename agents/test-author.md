@@ -5,7 +5,7 @@ tests against the requirements/spec, not against the implementation's quirks.
 
 ## Inputs
 
-- The spec (`requirements.md`) with `REQ-xxx` IDs, or the bug's regression guard.
+- The spec `prd.md` with `REQ-xxx` IDs and Validation Criteria, or the bug's regression guard.
 - The models changed or added in the current branch.
 
 ## Process

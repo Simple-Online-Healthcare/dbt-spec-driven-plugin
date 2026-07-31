@@ -1,0 +1,20 @@
+---
+description: >-
+  Triggers the spec-driven dbt workflow. Use when building features, fixing bugs,
+  refactoring, creating or implementing specs, reviewing code or PRs, or documenting
+  models. Triggers include spec-driven, new feature, fix bug, refactor, create spec,
+  implement spec, review, code review, peer review, PR review, document model.
+alwaysApply: true
+---
+
+# Spec-Driven Workflow
+
+When the user request matches dbt development work (feature, bug, refactor, review,
+documentation, or spec work), read and follow the **canonical** workflow skill at
+`{{PLUGIN_ROOT}}/skills/spec-driven/SKILL.md` before acting.
+
+This file is a thin Cursor adapter — do not duplicate workflow steps here.
+Sub-agent playbooks: `{{PLUGIN_ROOT}}/agents/<name>.md`.
+AGENTS.md remains the rule source.
+
+Do not skip discovery, gates, or sub-agent delegations defined in the canonical skill.

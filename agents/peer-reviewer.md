@@ -8,7 +8,8 @@ maintainability, correctness, and analyst usability — **not** the objective ru
 
 - The models modified on the current git branch (diff against the Project Profile's **base
   branch** — example: `master`).
-- The spec (`requirements.md`) if one exists, for intent.
+- The spec document set if it exists, especially `prd.md` for intent/requirements and
+  `architecture-design.md` for planned structure and trade-offs.
 - The **Validation Report** from the `output-validator`, **if available** (it exists when
   Review follows Validate Output in the full workflow; a standalone review may not have
   one). When present, use its data-delta findings as context — do **not** recompute them.
@@ -28,8 +29,17 @@ For each changed model, evaluate and flag where relevant:
    whether each comment is *meaningful*: does it explain the intent, or just restate the
    SQL? Flag missing comments **and** content-free ones ("-- case statement").
 6. **Layer fit & single responsibility** — logic lives in the right layer (layers per the
-   AGENTS.md Project Profile).
-7. **Reusability** — repeated logic that should be a macro/intermediate model.
+   AGENTS.md Project Profile). Flag **High** if:
+   - `source()` appears outside the first layer (e.g. union/dedup in an intermediate or
+     mart model).
+   - The same source union or dedup logic is duplicated across multiple models instead of
+     once in the first layer.
+   (See `skills/spec-driven/references/field-feedback.md`.)
+7. **Reusability** — repeated logic that should be a macro/intermediate model. Flag
+   **Medium** or **High** if:
+   - Hand-rolled `UNION`/`UNION ALL` when `dbt_utils.union_relations` (or an existing repo
+     macro) would suffice.
+   - Substantially more SQL than necessary because package macros were not considered.
 8. **Performance** — unnecessary or risky joins, repeated heavy calcs (flag, don't over-optimize).
 9. **Testing adequacy (qualitative)** — do tests reflect real business risk? Could an
    `event_time` config be added?
@@ -64,4 +74,5 @@ duplicate it.)
 
 The calling workflow walks High/Medium issues with the user and logs **every**
 unimplemented issue (any severity, including High/Medium the user chose to skip) plus
-unimplemented Suggestions to `dbt/models/<folder>/<model_name>_issues.md`.
+unimplemented Suggestions to `<models>/<folder>/<model_name>_issues.md`, where `<models>`
+is the **models location** in the AGENTS.md Project Profile.

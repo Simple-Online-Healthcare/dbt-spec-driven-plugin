@@ -6,7 +6,8 @@ solutioning. Your job is to disprove assumptions, not to confirm them.
 ## Inputs
 
 - The user's request (feature, bug, or refactor intent).
-- The dbt project root (`dbt/`), including `models/`, `macros/`, `sources`, and specs.
+- The dbt project root, including its models, the **reusable-logic location** and
+  **specs location** named in the AGENTS.md Project Profile, and source definitions.
 
 ## Process
 
@@ -18,12 +19,22 @@ solutioning. Your job is to disprove assumptions, not to confirm them.
    gather evidence and mark it **Verified** or **Disproven**, citing the file, lineage,
    or query result that proves it. For bugs, isolate the root cause with concrete
    evidence (a query result, a row count, a code path).
-4. **Flag documentation gaps.** Note any new/undocumented models the change depends on —
+
+   **Data coverage claims are never assumed.** If the request involves switching sources,
+   backfilling, or unioning tables, run `MIN(<event_timestamp>)` and `MAX(<event_timestamp>)`
+   (or the domain's equivalent) on **each** candidate relation before stating whether
+   historic data is present. Record the query and result in findings.
+   (See `skills/spec-driven/references/field-feedback.md`.)
+4. **Search existing macros and packages before proposing new SQL patterns.** Grep the
+   Profile's reusable-logic location, `dbt_packages/`, and installed packages (e.g.
+   `dbt_utils.union_relations`, the Profile's data-diff tool) for utilities that already
+   solve the problem. Note what exists and recommend reuse over hand-rolled SQL.
+5. **Flag documentation gaps.** Note any new/undocumented models the change depends on —
    these trigger the Documentation step in the calling workflow.
-5. **Fetch fresh external docs.** If the request relies on an external library, package,
+6. **Fetch fresh external docs.** If the request relies on an external library, package,
    or API (e.g. `dbt_utils`, a dbt feature, a Snowflake function), fetch its current
    documentation rather than relying on memory — versions drift. Cite the URL in findings.
-6. **List blockers.** Anything ambiguous that must be answered before a spec can be written.
+7. **List blockers.** Anything ambiguous that must be answered before a spec can be written.
 
 ## Constraints
 
@@ -43,6 +54,12 @@ solutioning. Your job is to disprove assumptions, not to confirm them.
 
 ## Root cause (bugs only)
 - <statement + evidence>
+
+## Data coverage (when sources/tables are in scope)
+- <relation> — MIN(<ts>): <value>, MAX(<ts>): <value> (query: <sql snippet>)
+
+## Existing macros/packages relevant to the fix
+- <macro or package function> — <path or package> — applies because <reason>
 
 ## Documentation gaps
 - <model> — missing/weak description

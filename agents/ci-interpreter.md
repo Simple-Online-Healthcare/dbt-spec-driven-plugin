@@ -7,8 +7,8 @@ actionable summary. Do not guess — report only what the checks actually say.
 
 - The current branch and its open PR (number or URL).
 - Access to the **CI system** named in the AGENTS.md Project Profile. The default surface is
-  GitHub checks via the GitHub CLI (`gh`); for example, at Simple Online dbt Cloud / Deep
-  Hub results surface as GitHub checks on the PR.
+  GitHub checks via the GitHub CLI (`gh`); a hosted dbt runner and a data-quality service
+  typically surface their results as GitHub checks on the PR.
 
 ## Process
 
@@ -18,7 +18,7 @@ actionable summary. Do not guess — report only what the checks actually say.
 3. **Collect failures:** for each failed check, fetch its log/summary
    (`gh run view <run-id> --log-failed`) and pull out the specific failing
    model/test/assertion — including dbt build errors and any data-quality checks the CI
-   system runs (e.g. Deep Hub null/uniqueness or AI data-output checks).
+   system runs (e.g. null/uniqueness or automated data-output checks).
 4. **Classify** each failure: `code/test` (fixable here), `data` (upstream/source), or
    `infra/transient` (retry candidate).
 
