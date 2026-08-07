@@ -29,6 +29,7 @@ Detect intent from the request and route to the matching entry point:
 | Intent | Triggers | Route |
 |--------|----------|-------|
 | New Feature | "build", "create", "add", "new feature" | Full workflow (Discover → Specify → Design → Implement → Review → Ship) |
+| Semantic View | "create semantic view", "add cortex view", "semantic layer" | Full workflow with **`semantic-view-author`** delegation during Implement |
 | Bug Fix | "fix", "bug", "broken", "incorrect" | Bug workflow (Discover → Specify+Implement → Review → Ship) |
 | Refactor | "refactor", "restructure", "clean up", "reorganize" | Refactor workflow (Discover → Design+Implement → Review → Ship) |
 | Standalone Review | "review", "code review", "peer review", "review my PR" | Jump straight to **Review** on the current branch |
@@ -45,6 +46,9 @@ isolation and returns a structured result, keeping the main thread focused:
 
 - **`discovery`** — explores the codebase/lineage and fact-checks assumptions; returns a
   findings report. Used by the Discover phase.
+- **`semantic-view-author`** — writes semantic view DDL (tables, relationships, metrics,
+  dimensions, VQRs). Used during Implement when intent is "Semantic View". See
+  `references/semantic-views.md` for conventions.
 - **`test-author`** — writes dbt tests/assertions for the change. Used during Implement.
 - **`output-validator`** — validates the *data outcome* against the spec's Validation
   Criteria (schema, data delta vs baseline, self-validate vs sign-off). Used by Validate Output.
