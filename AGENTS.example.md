@@ -108,6 +108,10 @@ no tests are defined.
 - The primary key MUST have both a `unique` and a `not_null` test.
 - All **sources** MUST define freshness tests.
 
+**Exemption:** Models with `materialized: semantic_view` are exempt from PK tests.
+They MUST instead have a singular queryability test validating the semantic view is
+structurally valid (the query executes without error).
+
 **Fail if:** an intermediate/mart model has no primary key, the primary key is not
 tested with both `unique` and `not_null`, or a source lacks freshness configuration.
 
@@ -206,3 +210,15 @@ misreads the original intent.*
 - Hardcoded database/schema references.
 - Duplicated logic across models.
 - Violating layer dependency direction (§1).
+
+---
+
+## 12. Semantic views (recommended, non-blocking)
+
+- Semantic views MUST reference dbt models via `ref()`.
+- Semantic views MUST include a top-level `COMMENT` explaining business purpose.
+- All metrics MUST have a `COMMENT` explaining the business definition.
+- Synonyms MUST be unique across the entire semantic model.
+- Recommend VQRs for top 5 queries per domain.
+- Recommend `SAMPLE_VALUES` + `IS_ENUM` for all categorical dimensions.
+- All business logic MUST live in upstream mart columns (thin views).
