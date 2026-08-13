@@ -1,5 +1,5 @@
 {
   "name": "dbt-spec-driven",
-  "version": "0.3.0",
-  "description": "Spec-driven dbt development workflow. A canonical workflow skill (spec-driven) with a durable four-document spec set, interactive and scheduled execution modes, satellite and capability skills (spec-review, spec-debt, verify-this, ci-loop, quality-audit, pr-ergonomics, work-summary), mandatory standards in AGENTS.md, and context-isolated sub-agents for discovery, test authoring, output validation, peer review, CI interpretation, and maintainability audit. Built for Cortex; portable to Cursor, VS Code/Copilot, and Codex via thin generated adapters."
+  "version": "0.4.0",
+  "description": "Spec-driven dbt development workflow. A canonical workflow skill (spec-driven) with a route-scaled four-document spec set, mechanically enforced sub-agent delegation (PreToolUse gates on model writes and PR creation), interactive and scheduled execution modes, satellite and capability skills (spec-review, spec-debt, verify-this, ci-loop, quality-audit, pr-ergonomics, work-summary), mandatory standards in AGENTS.md including a solution ladder that prevents over-built SQL, and context-isolated sub-agents for discovery, spec authoring, test authoring, output validation, semantic view authoring, peer review, CI interpretation, and maintainability audit. Built for Cortex; portable to Cursor, VS Code/Copilot, and Codex via thin generated adapters."
 }

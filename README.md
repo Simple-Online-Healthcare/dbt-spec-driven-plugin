@@ -54,13 +54,18 @@ divergent forks. The values shipped in `AGENTS.example.md` are one team's exampl
 - `git` and the GitHub CLI (`gh`, authenticated) for the Ship phase.
 - `jq` on PATH for the hooks **on macOS/Linux** (the POSIX hook variants use it; the
   Windows/PowerShell variants use built-in cmdlets and need no `jq`).
-- `python3` and `node` if you use `scripts/install-agent-adapters.sh` /
+- `node` on PATH for the **enforcement hook** (`scripts/hooks/require-delegation.js`), which
+  blocks model writes and PR creation when a required delegation is missing. Without `node`
+  the hook fails open — the workflow still runs, but nothing is mechanically enforced.
+- `python3` if you use `scripts/install-agent-adapters.sh` /
   `scripts/check-adapter-drift.js`.
 - A dbt project with the base branch and specs directory set in your Project Profile.
 - A dbt data-diff package for `output-validator` — `audit_helper` (+ `dbt_utils`) by
   default; swap via the Profile's data-diff tool.
 - Optional: an MCP tool for your ticketing system; a CI system whose results surface as
   GitHub checks for the `ci-interpreter` agent.
+- Optional: the [`ponytail`](https://github.com/DietrichGebert/ponytail) plugin as a
+  general over-engineering defence — see "Companion: ponytail" below.
 
 ## Install
 
@@ -71,6 +76,33 @@ divergent forks. The values shipped in `AGENTS.example.md` are one team's exampl
    where Cortex discovers plugins — `~/.snowflake/cortex/plugins/`).
 3. Start a session in your dbt repo and invoke the workflow (e.g. "fix bug …",
    "build feature …", or `/dbt-spec-driven:spec-driven`).
+
+### Companion: ponytail (optional)
+
+[`ponytail`](https://github.com/DietrichGebert/ponytail) enforces a general
+anti-over-engineering ladder (YAGNI, reuse before rewrite, stdlib before custom). This
+plugin already borrows its *portability pattern* (see
+[`docs/agent-portability.md`](docs/agent-portability.md)); installing it adds the
+*behaviour* plus `/ponytail-review` and `/ponytail-audit`.
+
+```text
+/github-plugin-installer DietrichGebert/ponytail
+```
+
+Three things to know if you run both:
+
+- **`AGENTS.md` wins.** The ladder is advisory about *how much SQL to write*. It never
+  licenses skipping a blocking rule — documentation (§4), primary keys and tests (§5),
+  intent comments (§10), or the PR gate (§9). `AGENTS.md` §13 states this precedence
+  explicitly, and §13 is the authority for dbt because ponytail knows nothing about dbt
+  layers, `ref()`/`source()` direction, or `dbt_utils`.
+- **§13 is the reliable path; ponytail is the supplement.** §13 ships in your repo's
+  `AGENTS.md` and is injected by this plugin's `SessionStart` hook, so it holds with or
+  without ponytail installed.
+- **It injects into every sub-agent by default.** This workflow is sub-agent heavy, so that
+  is extra tokens on each delegation. Scope it with `PONYTAIL_SUBAGENT_MATCHER` (a regex
+  against `agent_type`) if you want it off read-only agents — e.g. `PONYTAIL_SUBAGENT_MATCHER='peer-reviewer|quality-auditor'`
+  to keep it on the review agents only.
 
 ### Other hosts
 

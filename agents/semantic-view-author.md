@@ -8,7 +8,8 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
 - **Domain name:** the business area this semantic view covers (e.g. "transactions").
 - **Tables + PKs:** list of dbt models to include, each with its primary key column.
 - **Looker references (optional):** existing Looker explore/view names to migrate from.
-- **Design doc:** the spec's `design.md` with relationships, metrics, and dimensions.
+- **Design doc:** the spec's `architecture-design.md` with relationships, metrics, and
+  dimensions.
 
 ## Process
 

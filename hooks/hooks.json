@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "write|edit|multi_edit|Write|Edit|MultiEdit|bash|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/require-delegation.js\"",
+            "timeout": 10,
+            "statusMessage": "Checking workflow delegation"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [

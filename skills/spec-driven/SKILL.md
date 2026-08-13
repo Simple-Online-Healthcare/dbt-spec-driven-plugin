@@ -58,10 +58,10 @@ If intent is ambiguous, ask the user which applies before starting.
 
 | Workflow | Phases (in order) |
 |----------|-------------------|
-| **Bug Fix** | `discovery` → GATE → Specify+Implement + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
-| **Feature** | `discovery` → GATE → Specify → ticket-update → GATE → Design → GATE → Implement + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
-| **Semantic View** | `discovery` → GATE → Specify → ticket-update → GATE → Design → GATE → Implement + `semantic-view-author` + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
-| **Refactor** | `discovery` → GATE → Design+Implement + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
+| **Bug Fix** | `discovery` → GATE → Specify+Implement + `spec-author` + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
+| **Feature** | `discovery` → GATE → Specify + `spec-author` → ticket-update → GATE → Design + `spec-author` → GATE → Implement + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
+| **Semantic View** | `discovery` → GATE → Specify + `spec-author` → ticket-update → GATE → Design + `spec-author` → GATE → Implement + `semantic-view-author` + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
+| **Refactor** | `discovery` → GATE → Design+Implement + `spec-author` + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
 
 **Legend:**
 - `` `sub-agent` `` = MUST delegate via Task tool (never do the work inline)
@@ -84,9 +84,10 @@ artifacts that downstream phases depend on and that survive context compaction.
 | Sub-agent | Trigger | Produces | Consumed by |
 |-----------|---------|----------|-------------|
 | `discovery` | Start of any workflow | Findings report | Specify phase (grounds the spec) |
+| `spec-author` | Specify and Design phases | The route's spec documents + `REQ-xxx`/`VAL-xxx` | Design, Implement, `output-validator` |
 | `semantic-view-author` | Intent is "Semantic View" | Semantic view DDL + metadata | Implement phase; see `references/semantic-views.md` |
 | `test-author` | Any model created or modified | Tests + run result | Implement (regression coverage) |
-| `output-validator` | After Implement, before Review | Validation Report (Self-validatable: YES/NO) | Review phase + gate decision |
+| `output-validator` | After Implement, before Review | `validation-report.md` (Self-validatable: YES/NO) | Review phase + gate decision |
 | `peer-reviewer` | Before Ship, on changed models | Structured Issues (H/M/L) | Review phase + `_issues.md` |
 | `ci-interpreter` | After PR is opened | CI status (PASS/FAIL/PENDING) | Ship phase (next action) |
 
@@ -155,8 +156,8 @@ Update this file after completing each phase. This file:
 | Phase | Status | Gate | Artifact | Sub-agent delegated |
 |-------|--------|------|----------|---------------------|
 | Discover | pending | — | — | discovery |
-| Specify+Implement | pending | — | project-charter.md + prd.md + architecture-design.md + wbs.md | test-author |
-| Validate Output | pending | — | Validation Report | output-validator |
+| Specify+Implement | pending | — | prd.md + wbs.md (charter, architecture-design: N/A) | spec-author, test-author |
+| Validate Output | pending | — | validation-report.md | output-validator |
 | Review | pending | — | _issues.md | peer-reviewer |
 | Ship | pending | — | PR | ci-interpreter |
 ```
@@ -168,10 +169,10 @@ Update this file after completing each phase. This file:
 | Phase | Status | Gate | Artifact | Sub-agent delegated |
 |-------|--------|------|----------|---------------------|
 | Discover | pending | — | — | discovery |
-| Specify | pending | — | project-charter.md + prd.md | — |
-| Design | pending | — | architecture-design.md + wbs.md | — |
+| Specify | pending | — | project-charter.md + prd.md | spec-author |
+| Design | pending | — | architecture-design.md + wbs.md | spec-author |
 | Implement | pending | — | code + tests | test-author |
-| Validate Output | pending | — | Validation Report | output-validator |
+| Validate Output | pending | — | validation-report.md | output-validator |
 | Review | pending | — | _issues.md | peer-reviewer |
 | Ship | pending | — | PR | ci-interpreter |
 ```
@@ -184,6 +185,51 @@ Update this file after completing each phase. This file:
 - **Before transitioning to the next phase**, read this file and confirm the current
   row is fully populated. If any cell is empty, the transition is blocked.
 - A phase marked `blocked` is a HARD STOP — see "Scheduled Mode Rules".
+- `N/A` in an Artifact cell means a document the **route** does not require (see
+  `references/spec-documents.md`). It is a deliberate omission and must never be used to
+  record a document that was simply not written — `spec-debt` treats a blank cell as
+  skipped work and `N/A` as by-design.
+
+> **Enforcement:** this file is not only a record. A `PreToolUse` hook reads it before any
+> model write and before `git push` / PR creation, and **blocks** the call when a required
+> phase is not `delegated`. See "Enforcement Hooks" below. Keeping it accurate is what
+> keeps you unblocked.
+
+---
+
+## Enforcement Hooks (mechanical, not advisory)
+
+Most of this plugin's hooks inject reminders. Two gates actually **block**, implemented in
+`scripts/hooks/require-delegation.js` and registered on `PreToolUse`:
+
+| Gate | Fires on | Blocks when |
+|------|----------|-------------|
+| **Model write** | `write`/`edit`/`multi_edit` on `models/**/*.sql` | No `workflow-state.md` exists, or the Discover row is neither `complete` nor `delegated` |
+| **Ship** | `bash` matching `git push` or `gh pr create` | No `workflow-state.md` exists, or any pre-Ship phase is `pending`/`in-progress`, or any row naming a sub-agent does not show `delegated` |
+
+Both gates also hard-stop on any row with status `blocked`.
+
+Why two gates rather than one: the model-write gate stops implementation running ahead of
+discovery, but a hook cannot block a workflow that was never started — so the Ship gate is
+the backstop. **A change can reach the working tree without a workflow; it cannot become a
+PR without one.** Partial delegation, the documented failure mode in
+`references/field-feedback.md`, is caught at Ship even when every phase row claims
+`complete`, because the gate checks the sub-agent column independently of the status column.
+
+Scope and limits, stated plainly:
+
+- **Narrow by design.** Only `.sql` files under `models/` are gated. Macros, tests,
+  analyses, seeds, and YAML are not — `test-author` must stay unobstructed.
+- **Fails open.** Any unreadable file, unparseable table, malformed event, or internal error
+  allows the call. A repo with no spec root is not running this workflow and is never gated.
+- **`N/A` is honoured.** An artifact cell of `N/A` (a document the route does not require)
+  does not block. An agent cell of `—`/`N/A` means no agent is expected for that row. A
+  **blank** agent cell where an agent is named in the template is treated as skipped work.
+- **The escape hatch is explicit and auditable.** `DBT_SPEC_DRIVEN_ENFORCE=off` disables
+  both gates. Use it for a deliberate out-of-workflow edit, and only after telling the user.
+  Silently working around a gate — editing a non-model file to dodge the write gate, or
+  marking a row `delegated` for an agent that was never invoked — is a workflow violation
+  and falsifies the audit trail `spec-debt` depends on.
 
 ---
 
@@ -241,26 +287,33 @@ Before proceeding, confirm ALL:
 
 ### Phase: Specify
 
-1. Read `references/spec-documents.md`.
-2. Create or update `<specs>/<feature-name>/project-charter.md` with the project vision,
-   business/data outcome, stakeholders/consumers, success metrics, constraints, risks,
-   milestones, and immediate next steps.
-3. Create or update `<specs>/<feature-name>/prd.md`.
-4. Write requirements in EARS notation:
+**Delegate to the `spec-author` sub-agent** (route: `feature`). Pass it the ticket, the
+request, and discovery's findings report. It reads `references/spec-documents.md` and writes
+the documents — do not write them inline, and do not load the templates into this thread.
+
+The sub-agent is responsible for:
+
+1. `<specs>/<feature-name>/project-charter.md` — project vision, business/data outcome,
+   stakeholders/consumers, success metrics, constraints, risks, milestones, next steps.
+2. `<specs>/<feature-name>/prd.md` — functional, non-functional, data, and interface
+   requirements; acceptance criteria as testable assertions; assumptions; constraints; an
+   explicit Out of Scope list.
+3. Requirements in EARS notation, numbered `REQ-001`, `REQ-002`, … for traceability:
    - `WHEN <trigger>, THE SYSTEM SHALL <behavior> SO THAT <rationale>`
    - `WHILE <state>, THE SYSTEM SHALL <behavior>`
    - `WHERE <condition>, THE SYSTEM SHALL <behavior>`
    - `IF <condition>, THEN THE SYSTEM SHALL <behavior>`
-5. Number requirements (`REQ-001`, `REQ-002`, …) for traceability.
-6. Include functional requirements, non-functional requirements, data requirements,
-   interface requirements, acceptance criteria as testable assertions, assumptions,
-   constraints, and an explicit Out of Scope list.
-7. **Draft Validation Criteria** (the expected *data outcome*, checked later in Validate
-   Output). Tag each `VAL-xxx` as **Objective** (ground truth — agent self-validates) or
-   **Subjective** (no ground truth — human sign-off), and map it to a `REQ-id`. Apply the
-   task-type default: bug fixes/refactors usually have ground truth (mostly Objective);
-   features are mixed. This is the TDD "define the tests, work backwards" step — the
-   criteria are the contract the change must satisfy.
+4. **Validation Criteria** (the expected *data outcome*, checked later in Validate Output).
+   Each `VAL-xxx` tagged **Objective** (ground truth — agent self-validates) or
+   **Subjective** (no ground truth — human sign-off), mapped to a `REQ-id`. Task-type
+   default: bug fixes/refactors usually have ground truth (mostly Objective); features are
+   mixed. This is the TDD "define the tests, work backwards" step — the criteria are the
+   contract the change must satisfy.
+5. Discovery's data-coverage evidence carried into the data requirements, quoted with the
+   query that produced it.
+
+On return, review the sub-agent's output and raise its Blockers at the gate. If it reports
+blockers, resolve them before approving — do not implement around an unanswered question.
 
 **Post to the ticketing system** (Project Profile; example: Jira via the `jira_update_issue`
 MCP tool): update the ticket description with the branch name, requirement IDs + one-line
@@ -272,35 +325,45 @@ summaries, and models impacted.
 
 ### TRANSITION: Specify → Design
 Before proceeding, confirm ALL:
+- [ ] `spec-author` was delegated via the Task tool (not written inline)
 - [ ] `project-charter.md` created with purpose, stakeholders/consumers, success metrics,
       constraints, risks, and next steps
 - [ ] `prd.md` created with EARS requirements, VAL criteria, acceptance criteria,
       assumptions/constraints, and Out of Scope
 - [ ] Ticket updated with branch, REQ-IDs, and impacted models
-- [ ] `workflow-state.md` updated (Specify row: complete, gate recorded)
+- [ ] `workflow-state.md` updated (Specify row: complete, gate recorded, `spec-author`
+      marked `delegated`)
 - [ ] GATE satisfied (see "Gate Protocol")
 
 ### Phase: Design
 
-1. Read `references/spec-documents.md`.
-2. Create or update `<specs>/<feature-name>/architecture-design.md` documenting:
+**Delegate to the `spec-author` sub-agent** (route: `feature`, documents:
+`architecture-design.md` + `wbs.md`). Pass it the approved `prd.md`, discovery's findings,
+and the checks below. It is responsible for:
+
+1. `<specs>/<feature-name>/architecture-design.md` documenting:
    - Files to create or modify (with rationale).
    - Key decisions and trade-offs considered.
    - Data flow / transformation logic and the lineage impact.
    - Dependencies and integration points.
-3. Create or update `<specs>/<feature-name>/wbs.md` documenting work items, dependencies,
-   sequencing, test/QA plan, validation plan, CI/release plan, risks, and progress log.
-4. Reference requirement IDs from `prd.md`.
-5. **Layer and reuse checks (mandatory when sources or unions are involved):**
+   - **The solution-ladder rung chosen (AGENTS.md §13)** and why the rungs above it did not
+     apply.
+2. `<specs>/<feature-name>/wbs.md` documenting work items, dependencies, sequencing,
+   test/QA plan, validation plan, CI/release plan, risks, and progress log.
+3. Referencing requirement IDs from `prd.md`.
+4. **Layer and reuse checks (mandatory when sources or unions are involved):**
    - `source()` reads and union/dedup logic belong in the **first layer only** (example:
      staging) — downstream layers must `ref()` that layer, not re-read sources.
      (AGENTS.md §1, §6.)
    - Prefer existing package macros (e.g. `dbt_utils.union_relations`) and repo macros
-     over hand-rolled SQL. Discovery's "Existing macros/packages" section must be
-     addressed in the architecture rationale.
+     over hand-rolled SQL, per the §13 ladder. Discovery's "Existing macros/packages"
+     section must be addressed in the architecture rationale, naming the specific macro.
    - If multiple models would share the same source union, consolidate into one
      first-layer model. (See `references/field-feedback.md`.)
-6. **Cross-repo handoff check:** if changed models affect downstream consumer surfaces
+
+After the sub-agent returns:
+
+5. **Cross-repo handoff check:** if changed models affect downstream consumer surfaces
    named in the Project Profile (BI exposures, downstream pipelines, dashboard metrics,
    model grain, or downstream field semantics), read `references/cross-repo-handoff.md`
    and create/update a source-side handoff in the Profile's **handoff location**. Link it
@@ -312,13 +375,16 @@ Before proceeding, confirm ALL:
 
 ### TRANSITION: Design → Implement
 Before proceeding, confirm ALL:
+- [ ] `spec-author` was delegated via the Task tool (not written inline)
 - [ ] `architecture-design.md` created with files, decisions, data flow, dependencies,
       lineage/integration impact, and validation design
 - [ ] `wbs.md` created with implementation tasks, dependencies, sequencing, test/QA plan,
       CI/release plan, risks, and progress log
+- [ ] Architecture states the §13 solution-ladder rung and rules out the rungs above it
 - [ ] If sources/unions involved: architecture confirms first-layer-only `source()` and macro reuse
 - [ ] If downstream consumer impact exists: handoff created or updated and linked
-- [ ] `workflow-state.md` updated (Design row: complete, gate recorded)
+- [ ] `workflow-state.md` updated (Design row: complete, gate recorded, `spec-author`
+      marked `delegated`)
 - [ ] GATE satisfied (see "Gate Protocol")
 
 ### Phase: Implement
@@ -352,8 +418,9 @@ outcome?* dbt tests (from `test-author`) are unit-level; this validates the actu
    Validation Criteria (`VAL-xxx`). It builds the models, checks schema/grain vs
    `architecture-design.md`, diffs the data against the baseline (the Profile's
    **output-validation baseline**, diffed with the Profile's **data-diff tool** — example:
-   `audit_helper`), evaluates each criterion, and returns a **Validation Report** including
-   requirement traceability and a **Self-validatable: YES/NO** marker.
+   `audit_helper`), evaluates each criterion, writes **`validation-report.md`** into the
+   active spec directory, and returns the same report including requirement traceability and
+   a **Self-validatable: YES/NO** marker.
 2. **Branch on the report:**
    - **Self-validatable: YES** (all criteria Objective and passed) → the agent
      self-validates; no human gate. These ground-truth tasks (typically bugs/refactors)
@@ -365,15 +432,15 @@ outcome?* dbt tests (from `test-author`) are unit-level; this validates the actu
 3. Hand any Objective outcome that should be a permanent regression to **`test-author`** to
    codify as a dbt test.
 
-**Output:** Validation Report (per-criterion pass / fail / signed-off + data delta +
-`REQ-id` traceability).
+**Output:** `<specs>/<dir>/validation-report.md` (per-criterion pass / fail / signed-off +
+data delta + `REQ-id` traceability).
 
 Proceed to **Review**.
 
 ### TRANSITION: Validate Output → Review
 Before proceeding, confirm ALL:
 - [ ] `output-validator` sub-agent was delegated via Task tool
-- [ ] Validation Report received with Self-validatable marker
+- [ ] `validation-report.md` written to the spec directory, with a Self-validatable marker
 - [ ] If Self-validatable: NO → GATE with user (present impact + samples)
 - [ ] `workflow-state.md` updated (Validate Output row: complete, output-validator delegated)
 
@@ -385,24 +452,25 @@ Before proceeding, confirm ALL:
 
 (Discovery has already produced the root cause with evidence.)
 
-1. Read `references/spec-documents.md`.
-2. Create or update the four spec documents:
-   - `project-charter.md` with impact, stakeholders/consumers, success metrics, risks,
-     and immediate next steps.
+1. **Delegate to the `spec-author` sub-agent** (route: `bug`). Do not write the spec
+   documents inline. On the bug route it produces **two** documents and marks the other two
+   `N/A`:
    - `prd.md` with root cause statement (from discovery), fix requirements (EARS),
      **Regression guard** behaviors that MUST remain unchanged, **Data-coverage evidence**
-     (from discovery), and Validation Criteria (`VAL-xxx`) mapped to `REQ-xxx`.
-   - `architecture-design.md` with affected files/models, lineage impact, technical
-     approach, alternatives, and validation design.
+     (from discovery, quoted with the query), and Validation Criteria (`VAL-xxx`) mapped to
+     `REQ-xxx`.
    - `wbs.md` with implementation tasks, test/QA plan, validation plan, risks, and
      progress log.
-3. Before implementing source or union changes, confirm in `prd.md` and
-   `architecture-design.md`:
+   - `project-charter.md` and `architecture-design.md` are **`N/A` for this route** unless
+     the fix carries strategic weight or a non-trivial design decision — the sub-agent
+     produces them and says why when it judges that to be the case.
+2. Before implementing source or union changes, confirm in `prd.md` and `wbs.md` (or
+   `architecture-design.md` when the sub-agent produced one):
    - Union/dedup happens in the **first layer only**; downstream models `ref()` it.
    - Package/repo macros considered (e.g. `dbt_utils.union_relations`) with rationale if
-     not used.
-4. Implement the fix; add/adjust tests via **`test-author`**.
-5. Verify the regression guard holds and the change satisfies `AGENTS.md`.
+     not used, per the AGENTS.md §13 ladder.
+3. Implement the fix; add/adjust tests via **`test-author`**.
+4. Verify the regression guard holds and the change satisfies `AGENTS.md`.
 
 **Output:** Fix + spec documenting what changed and why.
 
@@ -411,13 +479,16 @@ correct value + regression guard — so this is typically self-validatable).
 
 ### TRANSITION: Specify+Implement → Validate Output (Bug Fix)
 Before proceeding, confirm ALL:
-- [ ] `project-charter.md`, `prd.md`, `architecture-design.md`, and `wbs.md` created or
-      updated with root cause, EARS requirements, regression guard, architecture, tasks,
-      and validation criteria
+- [ ] `spec-author` sub-agent was delegated via Task tool
+- [ ] `prd.md` and `wbs.md` created or updated with root cause, EARS requirements,
+      regression guard, data-coverage evidence, tasks, and validation criteria
+- [ ] `project-charter.md` / `architecture-design.md` either written or explicitly recorded
+      as `N/A (route: bug)` in `workflow-state.md` — never left blank
 - [ ] `test-author` sub-agent was delegated via Task tool
 - [ ] `output-validator` will run next (do not skip to Review)
 - [ ] Models build and tests pass
-- [ ] `workflow-state.md` updated (Specify+Implement row: complete, test-author delegated)
+- [ ] `workflow-state.md` updated (Specify+Implement row: complete, `spec-author` and
+      `test-author` marked `delegated`)
 
 ---
 
@@ -427,19 +498,19 @@ Before proceeding, confirm ALL:
 
 (Discovery has already documented current behavior.)
 
-1. Read `references/spec-documents.md`.
-2. Create or update the four spec documents:
-   - `project-charter.md` with refactor purpose, stakeholders/consumers, success metrics,
-     constraints, risks, and next steps.
-   - `prd.md` with preserved behaviors (MUST remain identical), allowed changes
-     (structural, naming, performance), metrics to compare before/after (row counts,
-     outputs, test results), and Validation Criteria (`VAL-xxx`) mapped to `REQ-xxx`.
-   - `architecture-design.md` with the refactored structure, trade-offs, data flow, and
-     lineage/integration impact.
+1. **Delegate to the `spec-author` sub-agent** (route: `refactor`). On this route it
+   produces **two** documents and marks the other two `N/A`:
+   - `architecture-design.md` with the refactored structure, trade-offs, data flow,
+     lineage/integration impact, and the AGENTS.md §13 ladder rung chosen.
    - `wbs.md` with implementation tasks, dependency order, test/QA plan, and validation
-     plan.
-3. Design the refactored structure, then implement.
-4. Run before/after comparisons on the defined metrics; confirm `AGENTS.md` compliance.
+     plan — including preserved behaviors (MUST remain identical), allowed changes
+     (structural, naming, performance), the metrics to compare before/after (row counts,
+     outputs, test results), and Validation Criteria (`VAL-xxx`) mapped to `REQ-xxx`.
+   - `project-charter.md` and `prd.md` are **`N/A` for this route** unless the refactor
+     changes a consumer-visible contract, in which case the sub-agent produces `prd.md`
+     and says why.
+2. Implement the refactored structure.
+3. Run before/after comparisons on the defined metrics; confirm `AGENTS.md` compliance.
 
 **Output:** Refactored code + comparison results.
 
@@ -448,12 +519,15 @@ before/after — so this is typically self-validatable).
 
 ### TRANSITION: Design+Implement → Validate Output (Refactor)
 Before proceeding, confirm ALL:
-- [ ] `project-charter.md`, `prd.md`, `architecture-design.md`, and `wbs.md` created or
-      updated with preserved behaviors, allowed changes, architecture, tasks, and
-      comparison metrics
+- [ ] `spec-author` sub-agent was delegated via Task tool
+- [ ] `architecture-design.md` and `wbs.md` created or updated with preserved behaviors,
+      allowed changes, architecture, tasks, and comparison metrics
+- [ ] `project-charter.md` / `prd.md` either written or explicitly recorded as
+      `N/A (route: refactor)` in `workflow-state.md` — never left blank
 - [ ] `test-author` sub-agent was delegated via Task tool
 - [ ] Before/after metrics compared; outputs identical
-- [ ] `workflow-state.md` updated (Design+Implement row: complete, test-author delegated)
+- [ ] `workflow-state.md` updated (Design+Implement row: complete, `spec-author` and
+      `test-author` marked `delegated`)
 
 ---
 

@@ -256,6 +256,7 @@ compaction because it is re-derived from a file on every event.
 
 | Event | Variants | What it does | Why it exists |
 |-------|----------|--------------|---------------|
+| `PreToolUse` | 1 (Node) | **The only blocking hook.** Matcher `write\|edit\|multi_edit\|Write\|Edit\|MultiEdit\|bash\|Bash`; runs `scripts/hooks/require-delegation.js`. Two gates: (a) writing `models/**/*.sql` is blocked unless the Discover row is `complete` or `delegated`; (b) `git push` / `gh pr create` is blocked unless every pre-Ship phase is complete and every row naming a sub-agent shows `delegated`. Hard-stops on any `blocked` row. Exits 2 with the reason on stderr. `timeout` 10. | Every other hook is advisory text, and `SubagentStop` cannot fire for a sub-agent that was never invoked — so the documented partial-delegation failure produced *zero* hook events. This is the only mechanism that makes a delegation structurally unskippable. |
 | `SessionStart` | 2 (bash + PS) | If `AGENTS.md` exists, inject its full contents prefixed with "Mandatory project rules … (highest authority)". `statusMessage`: "Loading AGENTS.md rules". | Layer 1 must be in context before any dbt work, without the user asking. This is what makes the rules "always-on". |
 | `SessionStart` | 2 (bash + PS) | Concatenate the context-ledger path and the local-notes project-context file when present, and inject them labelled as planning context to "verify before high-risk action". `statusMessage`: "Loading durable project context". | Durable team facts (§9) are useless if nobody reads them. The "verify before high-risk action" framing prevents user-supplied context from being treated as verified. |
 | `SubagentStop` | 2 (bash + PS) | Resolve the spec dir. If `blocked` → HARD STOP. Otherwise inject a GATE directive: (1) update `workflow-state.md` marking the phase complete and the sub-agent `delegated`, (2) verify **all** TRANSITION checklist items, (3) interactive → `ask_user_question`; scheduled → auto-approve only if every item passes, else Retry Protocol. If no spec dir/state file → a softer "ensure `workflow-state.md` exists" note. `timeout` 10. | The highest-value hook. A sub-agent returning is exactly the moment an agent is tempted to skip the gate and race ahead. Firing on the event rather than trusting the skill text makes the gate structural. |
@@ -263,7 +264,21 @@ compaction because it is re-derived from a file on every event.
 | `Stop` | 2 (bash + PS) | If the state file records `blocked`, report that the workflow terminated without completing and point at the Retry Log. Otherwise, if any `pending`/`in-progress` rows remain, warn that the agent is stopping with N incomplete phases. Silent when complete. `timeout` 10. | Catches the silent-abandonment failure, and is the primary signal that an unattended (scheduled) run did not finish. |
 | `SessionEnd` | 2 (bash + PS) | If `git diff --name-only` is non-empty, append a dated `## <timestamp> — <branch>` section listing changed files to `.cortex/notes/session-log.md` (creating the directory). `timeout` 15. | Cheap session telemetry for handoff. `.cortex/notes/` is gitignored; this is never a team source of truth. |
 
-Total: 5 events, 6 logical hooks, 12 command entries.
+Total: 6 events, 7 logical hooks, 13 command entries.
+
+### Why the blocking hook is Node, not dual shell variants
+
+`require-delegation.js` deliberately breaks the dual-variant pattern. Its logic — parse an
+event from stdin, classify the tool, resolve the newest state file, parse a markdown table,
+evaluate two independent gates — is far past the complexity where two hand-maintained shell
+implementations stay in agreement. The dual-variant pattern's own documented hazard ("edit
+both variants or neither … the most common hook defect") is worst exactly where the hook can
+**block a tool call**: a PowerShell variant that diverges would either fail to protect
+Windows users or wrongly block them. One Node implementation runs identically on every OS.
+
+`node` was already a de facto requirement via `scripts/check-adapter-drift.js`; this promotes
+it to a hard requirement for enforcement. The script fails open on every error path, so a
+missing `node` degrades to "no enforcement", never to "repository unusable".
 
 ---
 
@@ -281,6 +296,8 @@ breaking change that must be traced to every consumer.
 | Agent | Trigger | Key inputs | Output shape | Consumed by |
 |-------|---------|-----------|--------------|-------------|
 | `discovery` | Start of **every** workflow (feature / bug / refactor). Mandatory first gate. | User request; models, macros (**reusable-logic location**), sources, **specs location** | `## Findings` / `## Assumptions` (Verified \| Disproven + evidence) / `## Root cause` (bugs) / `## Data coverage` / `## Existing macros/packages` / `## Documentation gaps` / `## Open questions (blockers)` | Specify phase (grounds the spec); Design phase must address the macros section; Documentation step is triggered by the gaps section |
+| `spec-author` | Specify and Design phases, on every route | Ticket + request; `discovery` findings; the route (`feature` \| `bug` \| `refactor` \| `semantic-view`); templates in `references/spec-documents.md` | `## Documents written` / `## Documents N/A for this route` / `## Requirements allocated` (`REQ-xxx`, `VAL-xxx` + Objective\|Subjective) / `## Solution ladder` (rung + reuse) / `## Evidence carried from discovery` / `## Blockers for the gate` | Design phase; Implement; `output-validator` (reads `VAL-xxx`); `peer-reviewer` (reads intent) |
+| `semantic-view-author` | Implement phase when the route is `semantic-view` | Domain name; tables + PKs; optional Looker references; `architecture-design.md` for relationships, metrics, dimensions | Semantic view DDL (`TABLES` / `RELATIONSHIPS` / `DIMENSIONS` / `METRICS` / `AI_VERIFIED_QUERIES`), `_semantic_views.yml`, a queryability test, and any thin-view violations found | Implement phase; `test-author` (queryability test); `peer-reviewer` |
 | `test-author` | Any model created or modified | `prd.md` `REQ-xxx` + Validation Criteria, or the bug's regression guard; changed models | `## Tests added/updated` (→ `REQ-xxx`) / `## Run result` / `## Gaps` | Implement phase; re-invoked from Validate Output to codify objective outcomes as standing tests |
 | `output-validator` | After Implement, **before** Review, on every path | Changed models; `VAL-xxx` (Objective/Subjective) from `prd.md`; `architecture-design.md` for schema/grain; the **output-validation baseline** | **Validation Report**: `Self-validatable: YES \| NO` / `### Schema check` / `### Data delta vs baseline` / `### Criteria` (PASS \| FAIL \| NEEDS SIGN-OFF) / `### Requirement traceability` | The gate decision (see below); `peer-reviewer` reads the data delta rather than recomputing it |
 | `peer-reviewer` | Before Ship, on changed models. Also the standalone-review entry. | Diff vs the **base branch**; spec set; the Validation Report *if available* | `## Issues` → `### High` / `### Medium` / `### Low`, then `## Suggestions` | Review phase walks High/Medium individually; every unimplemented item lands in `<model>_issues.md` |
@@ -369,7 +386,7 @@ tables must agree.
 | `architecture-design.md` | same | Design (feature) / condensed phase (bug, refactor) | `output-validator` (expected schema/grain), `peer-reviewer` (planned structure) | Durable, committed |
 | `wbs.md` | same | same | Implement phase (task by task); `verify-this` links evidence here | Durable, committed |
 | `workflow-state.md` | same | The main thread, after every phase | Every gate; all three state-aware hooks; `spec-debt` | Per-workflow, committed |
-| **Validation Report** | Returned by `output-validator` (conversational) | `output-validator` | The gate decision; `peer-reviewer`; `work-summary` | **In-context only** — see gotchas |
+| **Validation Report** | `<specs>/<dir>/validation-report.md` | `output-validator` | The gate decision; `peer-reviewer`; `work-summary`; the Ship gate | Per-workflow, committed |
 | `<model>_issues.md` | `<models location>/<folder>/` | Review phase, after `peer-reviewer` | Future reviewers; `spec-debt` | Durable, append-only, committed with the PR |
 | Cross-repo handoff | `<handoff location>/<ticket-or-date>-<slug>.md` | Design phase, when downstream consumers are affected | Downstream repo's agents | Durable, committed |
 | Context atoms (`CTX-…`) | The Profile's **context ledger** | Any phase that learns a reusable fact | `SessionStart` hook, every future session | Durable, team-shared |
@@ -760,19 +777,20 @@ change is lost with no trace. Edit source, then propagate (§13).
 **Updating one hook variant.** Bash-only or PowerShell-only edits produce a defect invisible
 on your own OS. Both variants, every time.
 
-**The Validation Report is not a file.** It is a structured return value from
-`output-validator`. Unlike the four spec documents and `workflow-state.md`, it does **not**
-survive context compaction. If its content matters after a gate, persist the relevant
-findings into `wbs.md` or `architecture-design.md`. `peer-reviewer` explicitly handles the
-absent case ("note that the data delta was not independently validated") — that path is
-reached both in standalone review *and* after a compaction that dropped the report.
+**The Validation Report is a file *and* a return value.** `output-validator` writes
+`validation-report.md` into the active spec directory and returns the same content. The file
+is the durable copy — the return value alone does not survive context compaction. If the
+file is absent, `peer-reviewer` still handles the case ("note that the data delta was not
+independently validated"), which is now a genuine signal that validation did not run rather
+than an artefact of compaction.
 
 **Two specs-location candidates only.** Hooks try `dbt/specs` then `specs`. A team whose
 specs live elsewhere gets the generic fallback message — no error, just weaker enforcement.
 
 **Partial delegation is the documented failure mode.** Running `discovery` but reviewing
 inline, or skipping `output-validator`, has been observed in production and is what most of
-the enforcement machinery exists to prevent. Before any transition, verify every passed
+the enforcement machinery exists to prevent. It is now blocked mechanically at two points by
+the `PreToolUse` hook (see §6), not only warned about. Before any transition, verify every passed
 phase's sub-agent cell reads `delegated`.
 
 **"Delegate anyway" is intentional.** When a sub-agent's work looks trivial, delegate
@@ -833,7 +851,7 @@ silently. Either use one of the default paths or add yours to both variants.
 | **`VAL-xxx`** | A numbered Validation Criterion in `prd.md`, tagged Objective or Subjective and mapped to `REQ-xxx`. |
 | **Objective / Subjective** | Whether ground truth exists. Objective criteria are agent-self-validatable; Subjective require human sign-off. |
 | **`Self-validatable: YES/NO`** | The `output-validator` marker that decides whether the post-validation gate is skipped or hard. |
-| **Validation Report** | `output-validator`'s structured return: schema check, data delta vs baseline, per-criterion result, requirement traceability. Conversational, not a file. |
+| **Validation Report** | `output-validator`'s structured output: schema check, data delta vs baseline, per-criterion result, requirement traceability. Written to `validation-report.md` and returned to the caller. |
 | **`workflow-state.md`** | The externalized per-workflow progress record; survives compaction and is what the hooks inspect. |
 | **`blocked`** | A `workflow-state.md` status meaning the Retry Protocol was exhausted. Detected by `SubagentStop`, `PreCompact`, and `Stop` as a hard stop. |
 | **Retry Protocol** | Scheduled-mode failure handling: 3 attempts per distinct problem, counter reset on a *different* failure, then hard stop. |

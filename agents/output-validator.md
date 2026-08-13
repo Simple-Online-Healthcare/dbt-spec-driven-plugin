@@ -34,6 +34,10 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
      outputs (e.g. how rows now classify) and mark it **NEEDS SIGN-OFF**.
 5. **Decide the self-validatable status:** the task is *fully self-validatable* only if
    every `VAL-xxx` is Objective **and** passed. Otherwise it requires human sign-off.
+6. **Write the report to disk.** Save the report below to
+   `<specs>/<spec-dir>/validation-report.md` in the active spec directory *and* return it to
+   the caller. The file is the durable copy — a return value alone does not survive context
+   compaction, and `peer-reviewer` and the Ship gate both need to read it later.
 
 ## Constraints
 
@@ -43,7 +47,9 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
 - Objective findings that should become permanent regressions → hand to `test-author` to
   codify as dbt tests (e.g. the bug's correct-output case → singular test).
 
-## Output (return to caller) — Validation Report
+## Output — Validation Report
+
+Write this to `<specs>/<spec-dir>/validation-report.md` **and** return it to the caller:
 
 ```
 ## Validation Report
@@ -69,3 +75,5 @@ Self-validatable: YES | NO  (YES only if all criteria Objective and passed)
 The calling workflow auto-passes when *Self-validatable: YES*; otherwise it runs the
 **hard gate** — presenting the impact summary and discussing with the user until they
 confirm each Subjective outcome is correct / good enough.
+
+Record `validation-report.md` as the Validate Output row's artifact in `workflow-state.md`.
