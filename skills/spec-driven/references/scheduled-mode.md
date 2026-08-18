@@ -29,6 +29,7 @@ interactive mode (with human gates) is assumed.
 | Artifacts | Required | Required (unchanged) |
 | workflow-state.md | Required | Required (unchanged) |
 | Failure handling | Present to user | Retry Protocol (3× per problem) |
+| CI waiting | Human may check in | Single blocking `--watch` call, 30-min timeout — never poll |
 | Subjective validation | Human sign-off | HARD STOP (not attempted) |
 | PR merge | Never auto-merge | Never auto-merge (unchanged) |
 

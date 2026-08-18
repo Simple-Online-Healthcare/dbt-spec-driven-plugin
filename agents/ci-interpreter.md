@@ -13,8 +13,16 @@ actionable summary. Do not guess — report only what the checks actually say.
 ## Process
 
 1. **Identify the PR:** `gh pr view --json number,url,headRefName,statusCheckRollup`.
-2. **Poll checks to completion:** `gh pr checks <number> --watch` (or poll
-   `statusCheckRollup` until no check is `IN_PROGRESS`/`QUEUED`).
+2. **Watch checks to completion in a single blocking call:**
+   `timeout 1800 gh pr checks <number> --watch --interval 30`
+   `--watch` blocks until every check concludes, so the whole wait costs one tool
+   call. Do NOT poll in a loop. The `timeout` bounds the wait at 30 minutes; on
+   timeout, return `PENDING` with the last known rollup rather than retrying.
+   Only fall back to polling `statusCheckRollup` until no check is
+   `IN_PROGRESS`/`QUEUED` if `--watch` is unavailable.
+   Prefer `gh pr checks` over `gh run watch`: it covers all checks on the PR,
+   including non-Actions checks such as dbt Cloud / Deep Hub. Use `gh run watch`
+   only once a specific workflow run ID has already been resolved.
 3. **Collect failures:** for each failed check, fetch its log/summary
    (`gh run view <run-id> --log-failed`) and pull out the specific failing
    model/test/assertion — including dbt build errors and any data-quality checks the CI
