@@ -296,6 +296,77 @@ Keep edits scoped to the models in play — do not bulk-document unrelated areas
 
 ---
 
+## Workflow State (`workflow-state.md`)
+
+Every workflow tracks progress in `<spec-dir>/workflow-state.md`. This file is a
+**runtime artifact** — it exists only to assist the orchestrating agent during the
+workflow session. It is gitignored and never committed. Its audience is the agent
+(and hooks that inspect it), not humans reviewing the PR.
+
+### Schema
+
+```markdown
+| Phase | Status | Sub-agent | Gate | Evidence |
+|-------|--------|-----------|------|----------|
+```
+
+| Column | Required | Content |
+|--------|----------|---------|
+| **Phase** | Always | Phase name (e.g. `Discover`, `Specify`, `Implement`, `Validate Output`, `Review`, `Ship`) |
+| **Status** | Always | One of: `pending`, `in-progress`, `complete`, `blocked` |
+| **Sub-agent** | Always | Name of delegated sub-agent (e.g. `discovery`, `peer-reviewer`) or `—` if no delegation in this phase |
+| **Gate** | Always | Gate outcome: `approved` / `auto-approved (scheduled)` / `—` (not yet reached) / `blocked` |
+| **Evidence** | Always | Proof that the sub-agent was actually invoked and its output processed. See rules below. |
+
+### Evidence Column Rules
+
+The Evidence column exists to prevent the orchestrating agent from skipping sub-agent
+delegations. An agent in a hurry cannot fabricate valid evidence without actually
+performing the work. Evidence is recorded inline in `workflow-state.md` only — no
+additional files are created for this purpose.
+
+**What to record:**
+
+The first 8 characters of the SHA-256 hash of the sub-agent's full returned text,
+prefixed with `sha:` (e.g. `sha:a3f7c201`). This proves the orchestrator received and
+processed the sub-agent's response — you cannot produce a valid hash for output you
+never received.
+
+**Computation:** Immediately on receiving the sub-agent's return text, compute:
+`echo -n "<full-return-text>" | sha256sum | cut -c1-8`
+
+**Examples:**
+- `sha:e9b12f4a` (discovery sub-agent)
+- `sha:7c0e3d91` (output-validator sub-agent)
+- `sha:b4a82c5f` (peer-reviewer sub-agent)
+
+**For phases without sub-agent delegation** (e.g. Specify in interactive mode where the
+orchestrator writes the spec itself): record `—` (same as Sub-agent column).
+
+**Verification:**
+- The `SubagentStop` hook checks that the Evidence cell is non-empty for any phase row
+  where the Sub-agent column names a delegate. If the Evidence cell is empty or `—` but
+  a sub-agent is listed, the gate cannot pass.
+- The hash itself is not validated automatically (there is no second observer), but it
+  creates an auditable trail — a reviewer can re-run the sub-agent and compare hashes
+  if trust is in question.
+
+### Example
+
+```markdown
+| Phase | Status | Sub-agent | Gate | Evidence |
+|-------|--------|-----------|------|----------|
+| Discover | complete | discovery | approved | discovery-findings.md (34 lines) · sha:e9b12f4a |
+| Specify | complete | — | approved | — |
+| Design | complete | — | approved | — |
+| Implement | complete | test-author | approved | test-author-report.md (12 lines) · sha:4f19c7e2 |
+| Validate Output | complete | output-validator | approved | validation-report.md (22 lines) · sha:7c0e3d91 |
+| Review | in-progress | peer-reviewer | — | peer-review-issues.md (15 lines) · sha:b4a82c5f |
+| Ship | pending | ci-interpreter | — | — |
+```
+
+---
+
 ## Gate Protocol
 
 A gate is a phase-boundary checkpoint. Its behavior depends on the execution mode.
@@ -316,7 +387,8 @@ A gate is a phase-boundary checkpoint. Its behavior depends on the execution mod
 
 ### Both modes:
 - Sub-agent delegations are NEVER skipped regardless of mode.
-- Artifacts (requirements.md, design.md, workflow-state.md) are NEVER skipped.
+- Committed artifacts (requirements.md, design.md) are NEVER skipped.
+- Runtime state (workflow-state.md) MUST be maintained throughout the session.
 - The gate enforces *completeness*, not just *permission*.
 
 ---
@@ -341,10 +413,12 @@ checklists remain mandatory.
 
 Instead of calling `ask_user_question`, the agent:
 1. Verifies ALL items in the phase's transition checklist are satisfied (artifact exists,
-   sub-agent was delegated, workflow-state.md is updated).
+   sub-agent was delegated, workflow-state.md is updated, Evidence column is populated
+   with a valid artifact path + hash).
 2. If all satisfied → logs `auto-approved (scheduled)` in the Gate column of
    `workflow-state.md` and proceeds.
-3. If any item is NOT satisfied → treat as a failure (see Retry Protocol below).
+3. If any item is NOT satisfied (including a missing or empty Evidence cell for a phase
+   that requires sub-agent delegation) → treat as a failure (see Retry Protocol below).
 
 #### 2. Retry Protocol (max 3 attempts per problem)
 
