@@ -27,7 +27,7 @@ interactive mode (with human gates) is assumed.
 | Gates | `ask_user_question` → human approves | Self-checkpoint → auto-approve if complete |
 | Sub-agent delegation | Mandatory | Mandatory (unchanged) |
 | Artifacts | Required | Required (unchanged) |
-| workflow-state.md | Required | Required (unchanged) |
+| workflow-state.md (incl. Evidence column) | Required | Required (unchanged) |
 | Failure handling | Present to user | Retry Protocol (3× per problem) |
 | CI waiting | Human may check in | Single blocking `--watch` call, 30-min timeout — never poll |
 | Subjective validation | Human sign-off | HARD STOP (not attempted) |
@@ -82,7 +82,8 @@ When the agent hard-stops:
 4. Does NOT open a PR or push code.
 5. Terminates the workflow cleanly.
 
-The resulting `workflow-state.md` serves as the diagnostic report for a human to pick up.
+The resulting `workflow-state.md` serves as the in-session diagnostic for the agent (or
+for a human inspecting the working directory before cleanup).
 
 ---
 
