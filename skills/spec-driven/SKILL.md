@@ -64,14 +64,20 @@ Every feature/bug/refactor begins with a ticket in the Project Profile's **ticke
 system (example: Jira):
 
 1. Ask the user for the ticket ID (e.g., `DATA-123`).
-2. Create a branch from the Profile's **base branch** (example: `master`):
+2. **Move the ticket onto the board.** If the ticket is in "Backlog", transition it to
+   "Up Next" first so it is visible on the board before the workflow begins.
+3. **Label the ticket** `on-the-loop` and **transition it to "AI Executing"** in the
+   ticketing system (Jira: add label via `jira_update_issue`, transition via
+   `jira_transition_issue`). This marks the ticket as entering the spec-driven workflow
+   and enables board filtering.
+4. Create a branch from the Profile's **base branch** (example: `master`):
    `git checkout <base_branch> && git pull && git checkout -b <ticket-id>-<slug>`
    - Slug: kebab-case, concise, derived from the ticket/intent. Example: `DATA-123-new-patient-orders`.
-3. Spec directory: `<specs>/<dd-mm-yy>-<feature-name>/`, where `<specs>` is the specs
+4. Spec directory: `<specs>/<dd-mm-yy>-<feature-name>/`, where `<specs>` is the specs
    location in the Project Profile (example: `dbt/specs/`).
    - Example: branch created 28/05/26 → `dbt/specs/28-05-26-new-patient-orders/`.
-4. Record the ticket ID and branch name at the top of `requirements.md`.
-5. Proceed to the **Discover** phase.
+5. Record the ticket ID and branch name at the top of `requirements.md`.
+6. Proceed to the **Discover** phase.
 
 (Standalone Review and Standalone Docs skip ticket/branch creation and operate on the
 current branch.)
