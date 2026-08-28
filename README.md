@@ -15,6 +15,8 @@ a thin manifest/hooks adapter.
 | `AGENTS.example.md` | The mandatory, blocking engineering rules + a **Project Profile** (the only team-specific block). Copy to your dbt repo root as `AGENTS.md` and edit the Profile. |
 | `skills/spec-driven/` | The single workflow skill. Routes by intent (feature / bug / refactor / standalone review / standalone docs) and orchestrates the gated phases. |
 | `agents/` | Sub-agents for heavy, context-isolated steps: `discovery`, `test-author`, `output-validator`, `peer-reviewer`, `ci-interpreter`. |
+| `skills/ci-failure-responder/` | Responds to dbt Cloud job failures: creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. |
+| `automations/ci-failure.json` | Cortex Code Automations config for webhook-triggered invocation of ci-failure-responder. |
 | `hooks/hooks.json` | Auto-loads `AGENTS.md` at session start, warns before context compaction, and appends a session note on exit. Cross-platform (bash + PowerShell). |
 
 ### Design principle
@@ -84,6 +86,53 @@ example.
 
 Bug fixes and refactors use condensed paths; standalone "review my PR" and
 "document this model" jump straight to the relevant phase.
+
+## CI Failure Auto-Fix (on-the-loop)
+
+The plugin includes a **ci-failure-responder** skill that automatically responds to dbt
+Cloud job failures. When a scheduled job (daily, 30-min, hourly) fails, it:
+
+1. Parses the failure via the `dbt-cloud-parser` agent.
+2. Classifies it: `code_test` (auto-fixable), `data`, or `infra` (human-required).
+3. Creates a Jira bug ticket (project `DATA`, type `Bug`) with structured error details.
+4. For `code_test` failures: invokes the `spec-driven` bug-fix workflow in **scheduled
+   mode** (on-the-loop) — fully autonomous with retry protocol and hard-stop safety.
+
+### Setup
+
+1. **dbt Cloud webhook:** In dbt Cloud → Account Settings → Webhooks → Create Webhook.
+   - Event: `Run errored`
+   - Endpoint: the Cortex Code Automations webhook URL (provided when the automation is
+     registered on your account).
+   - Optionally filter to specific jobs by name pattern (e.g. `dbt_daily.*`, `dbt_30min.*`,
+     `dbt_hourly.*`).
+
+2. **Cortex Code Automations:** Register the automation using the config in
+   [`automations/ci-failure.json`](./automations/ci-failure.json). This tells Cortex to
+   invoke the `ci-failure-responder` skill when the webhook fires.
+
+3. **Jira:** Ensure the `DATA` project exists with issue type `Bug`, and that the Jira
+   MCP tool is configured with permissions to create issues and transition them.
+
+4. **Manual invocation:** You can also trigger the workflow manually:
+   `/dbt-spec-driven:ci-failure-responder` and provide a dbt Cloud run URL.
+
+### Outcomes
+
+| Scenario | Result |
+|----------|--------|
+| `code_test` failure, fix succeeds | PR opened, Jira ticket updated with link, transitioned to "Peer Review" |
+| `code_test` failure, fix blocked (3 retries exhausted) | Jira ticket updated with retry log, transitioned to "Up Next" for human pickup |
+| `data` or `infra` failure | Jira ticket created for triage, no auto-fix attempted |
+
+### Requirements (additional)
+
+- Cortex Code Automations enabled on your account (for webhook-triggered runs).
+- dbt Cloud account with webhook support.
+- Jira MCP tool configured (`mcp_jira_jira_create_issue`, `mcp_jira_jira_add_comment`,
+  `mcp_jira_jira_transition_issue`).
+
+---
 
 ## Roadmap
 
