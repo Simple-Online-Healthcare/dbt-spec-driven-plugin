@@ -1,0 +1,61 @@
+# Scheduled Mode Configuration
+# Tuneable parameters for autonomous "on the loop" execution.
+# Referenced by SKILL.md and the reference docs at runtime.
+
+# --- Retry & Escalation ---
+
+# Max attempts at the same build/test/review problem before hard-stopping.
+max_retries_per_problem: 3
+
+# Max re-attempts after reviewer rejection (full cycle: read feedback → fix → push → review).
+# After this many rejections, the ticket escalates to manual human execution.
+max_reviewer_rejections: 2
+
+# --- Review Severity Handling (scheduled mode) ---
+# How the agent handles peer-reviewer issues when running autonomously.
+review:
+  high: must_fix       # Agent MUST attempt to fix. Hard-stops if still unresolved after max_retries.
+  medium: should_fix   # Agent SHOULD attempt to fix. Logged if not fixed.
+  low: log_only        # Logged to _issues.md, not fixed.
+  suggestions: log_only
+
+# --- SLA ---
+
+# Target time for a human to review an AI-generated PR.
+review_sla_hours: 24
+
+# --- Eligibility ---
+# Task types eligible for scheduled (autonomous) execution.
+# Each must satisfy ALL four criteria: objective validation, bounded scope,
+# clear requirements, no design authority needed.
+
+eligible_task_types:
+  - bug_fix_with_repro          # Bug fix with clear reproduction steps and expected outcome
+  - source_staging_addition     # Add a new source and staging model (1:1 pattern)
+  - column_rename_alignment     # Column renames or schema alignment across models
+  - test_additions              # Add missing tests (not_null, unique, accepted_values)
+  - documentation_gaps          # Add descriptions to undocumented columns/models
+
+ineligible_task_types:
+  - new_mart_business_logic     # New business logic without a proven pattern
+  - ambiguous_investigation     # "Investigate and fix" without clear expected outcome
+  - architecture_pattern_change # New patterns, schema redesigns, structural decisions
+  - stakeholder_dependent       # Requires human communication or judgment on the output
+
+# --- Workflow Type Suitability ---
+# Which workflow types are suitable for scheduled mode.
+
+workflow_suitability:
+  bug_fix: good                 # Validation is Objective — agent can self-validate
+  refactor: good                # Before/after comparison is Objective
+  feature_all_objective: acceptable  # Rare, but possible for data-pipeline features
+  feature_mixed_subjective: not_suitable  # Will HARD STOP at output-validator
+
+# --- Jira Integration ---
+
+jira:
+  on_the_loop_label: "on-the-loop"
+  status_ai_executing: "AI Executing"
+  status_peer_review: "Peer review"
+  status_done: "Done"
+  status_manual_fallback: "In Progress"  # Where tickets go after max rejections

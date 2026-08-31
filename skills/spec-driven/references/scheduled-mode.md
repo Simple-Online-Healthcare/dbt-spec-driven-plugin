@@ -3,6 +3,10 @@
 This document provides detailed semantics for running the spec-driven workflow in
 scheduled (autonomous) mode — invoked from cron jobs, CI pipelines, or other automation.
 
+> **Config:** Tuneable parameters (retry limits, eligible task types, SLAs, Jira statuses)
+> are defined in `config/scheduled-mode.yml`. Read that file at workflow start. The values
+> stated in this document are defaults — the config file overrides them.
+
 ---
 
 ## Invoking Scheduled Mode

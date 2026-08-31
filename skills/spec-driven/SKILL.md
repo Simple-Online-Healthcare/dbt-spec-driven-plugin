@@ -339,6 +339,10 @@ invoked:
 
 ### Scheduled Mode Rules
 
+> **Config:** Tuneable parameters (retry limits, eligible task types, SLAs, Jira statuses)
+> are defined in `config/scheduled-mode.yml`. Read that file at workflow start and use its
+> values rather than the defaults stated below — the config is the source of truth.
+
 When running in scheduled mode, the following rules OVERRIDE the interactive gate behavior
 but **nothing else changes** — all phases, sub-agent delegations, artifacts, and transition
 checklists remain mandatory.

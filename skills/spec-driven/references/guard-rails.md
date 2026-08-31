@@ -3,6 +3,10 @@
 Reference document for the "on the loop" autonomous execution mode. Defines which tasks
 are eligible, how approvals work, and what happens on rejection or failure.
 
+> **Config:** Tuneable values (retry limits, eligible task types, SLAs, Jira statuses) are
+> defined in `config/scheduled-mode.yml`. This document describes the *policy*; the config
+> file holds the *parameters*.
+
 ---
 
 ## Eligibility Criteria
