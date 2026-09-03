@@ -100,21 +100,48 @@ Cloud job failures. When a scheduled job (daily, 30-min, hourly) fails, it:
 
 ### Setup
 
-1. **dbt Cloud webhook:** In dbt Cloud → Account Settings → Webhooks → Create Webhook.
+1. **Install the runner:**
+
+   ```bash
+   pip install -r automations/requirements.txt
+   ```
+
+2. **Store the dbt Cloud token** (if not already done):
+
+   ```bash
+   cortex secret store dbt_cloud_token --from-file /path/to/token
+   ```
+
+3. **Start the webhook server:**
+
+   ```bash
+   DBT_PROJECT_DIR=/path/to/your/dbt-project \
+     python automations/ci_failure_runner.py
+   ```
+
+   The server listens on port 8090 by default (`POST /webhook/ci-failure`).
+
+   | Env var | Required | Description |
+   |---------|----------|-------------|
+   | `DBT_PROJECT_DIR` | Yes | Absolute path to the dbt project root (where `AGENTS.md` lives) |
+   | `PLUGIN_DIR` | No | Path to the plugin directory (default: `~/.snowflake/cortex/plugins/dbt-spec-driven`) |
+   | `SNOWFLAKE_CONNECTION` | No | Snowflake CLI connection name (default: CLI default) |
+   | `DBT_CLOUD_WEBHOOK_SECRET` | No | HMAC secret for webhook signature verification |
+   | `JOB_NAME_PATTERN` | No | Regex to filter job names (default: `dbt_(daily\|30min\|hourly).*`) |
+   | `PORT` | No | HTTP port (default: 8090) |
+
+4. **dbt Cloud webhook:** In dbt Cloud → Account Settings → Webhooks → Create Webhook.
    - Event: `Run errored`
-   - Endpoint: the Cortex Code Automations webhook URL (provided when the automation is
-     registered on your account).
-   - Optionally filter to specific jobs by name pattern (e.g. `dbt_daily.*`, `dbt_30min.*`,
-     `dbt_hourly.*`).
+   - Endpoint: `http://<your-host>:8090/webhook/ci-failure`
+   - Optionally configure the HMAC secret and set `DBT_CLOUD_WEBHOOK_SECRET` to match.
 
-2. **Cortex Code Automations:** Register the automation using the config in
-   [`automations/ci-failure.json`](./automations/ci-failure.json). This tells Cortex to
-   invoke the `ci-failure-responder` skill when the webhook fires.
+   Only failures from the daily, 30-minute, and hourly jobs are processed (controlled by
+   `JOB_NAME_PATTERN`). All other job failures are acknowledged but skipped.
 
-3. **Jira:** Ensure the `DATA` project exists with issue type `Bug`, and that the Jira
+5. **Jira:** Ensure the `DATA` project exists with issue type `Bug`, and that the Jira
    MCP tool is configured with permissions to create issues and transition them.
 
-4. **Manual invocation:** You can also trigger the workflow manually:
+6. **Manual invocation:** You can also trigger the workflow manually:
    `/dbt-spec-driven:ci-failure-responder` and provide a dbt Cloud run URL.
 
 ### Outcomes
@@ -127,7 +154,7 @@ Cloud job failures. When a scheduled job (daily, 30-min, hourly) fails, it:
 
 ### Requirements (additional)
 
-- Cortex Code Automations enabled on your account (for webhook-triggered runs).
+- Cortex Code CLI installed and on PATH.
 - dbt Cloud account with webhook support.
 - Jira MCP tool configured (`mcp_jira_jira_create_issue`, `mcp_jira_jira_add_comment`,
   `mcp_jira_jira_transition_issue`).

@@ -22,6 +22,13 @@
     "cortex_secrets": ["dbt_cloud_token"],
     "snowflake_connection": true
   },
+  "runner": {
+    "script": "automations/ci_failure_runner.py",
+    "requirements": "automations/requirements.txt",
+    "endpoint": "POST /webhook/ci-failure",
+    "health": "GET /health",
+    "description": "Standalone Python webhook server using the Cortex Code Agent SDK. Receives dbt Cloud events and invokes the skill headlessly."
+  },
   "setup": {
     "dbt_cloud": {
       "base_url": "https://emea.dbt.com",
