@@ -15,6 +15,8 @@ a thin manifest/hooks adapter.
 | `AGENTS.example.md` | The mandatory, blocking engineering rules + a **Project Profile** (the only team-specific block). Copy to your dbt repo root as `AGENTS.md` and edit the Profile. |
 | `skills/spec-driven/` | The single workflow skill. Routes by intent (feature / bug / refactor / standalone review / standalone docs) and orchestrates the gated phases. |
 | `agents/` | Sub-agents for heavy, context-isolated steps: `discovery`, `test-author`, `output-validator`, `peer-reviewer`, `ci-interpreter`. |
+| `skills/ci-failure-responder/` | Responds to dbt Cloud job failures: creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. |
+| `automations/ci-failure.json` | Cortex Code Automations config for webhook-triggered invocation of ci-failure-responder. |
 | `hooks/hooks.json` | Auto-loads `AGENTS.md` at session start, warns before context compaction, and appends a session note on exit. Cross-platform (bash + PowerShell). |
 
 ### Design principle
@@ -84,6 +86,80 @@ example.
 
 Bug fixes and refactors use condensed paths; standalone "review my PR" and
 "document this model" jump straight to the relevant phase.
+
+## CI Failure Auto-Fix (on-the-loop)
+
+The plugin includes a **ci-failure-responder** skill that automatically responds to dbt
+Cloud job failures. When a scheduled job (daily, 30-min, hourly) fails, it:
+
+1. Parses the failure via the `dbt-cloud-parser` agent.
+2. Classifies it: `code_test` (auto-fixable), `data`, or `infra` (human-required).
+3. Creates a Jira bug ticket (project `DATA`, type `Bug`) with structured error details.
+4. For `code_test` failures: invokes the `spec-driven` bug-fix workflow in **scheduled
+   mode** (on-the-loop) — fully autonomous with retry protocol and hard-stop safety.
+
+### Setup
+
+1. **Install the runner:**
+
+   ```bash
+   pip install -r automations/requirements.txt
+   ```
+
+2. **Store the dbt Cloud token** (if not already done):
+
+   ```bash
+   cortex secret store dbt_cloud_token --from-file /path/to/token
+   ```
+
+3. **Start the webhook server:**
+
+   ```bash
+   DBT_PROJECT_DIR=/path/to/your/dbt-project \
+     python automations/ci_failure_runner.py
+   ```
+
+   The server listens on port 8090 by default (`POST /webhook/ci-failure`).
+
+   | Env var | Required | Description |
+   |---------|----------|-------------|
+   | `DBT_PROJECT_DIR` | Yes | Absolute path to the dbt project root (where `AGENTS.md` lives) |
+   | `PLUGIN_DIR` | No | Path to the plugin directory (default: `~/.snowflake/cortex/plugins/dbt-spec-driven`) |
+   | `SNOWFLAKE_CONNECTION` | No | Snowflake CLI connection name (default: CLI default) |
+   | `DBT_CLOUD_WEBHOOK_SECRET` | No | HMAC secret for webhook signature verification |
+   | `JOB_NAME_PATTERN` | No | Regex to filter job names (default: `dbt_(daily\|30min\|hourly).*`) |
+   | `PORT` | No | HTTP port (default: 8090) |
+
+4. **dbt Cloud webhook:** In dbt Cloud → Account Settings → Webhooks → Create Webhook.
+   - Event: `Run errored`
+   - Endpoint: `http://<your-host>:8090/webhook/ci-failure`
+   - Optionally configure the HMAC secret and set `DBT_CLOUD_WEBHOOK_SECRET` to match.
+
+   Only failures from the daily, 30-minute, and hourly jobs are processed (controlled by
+   `JOB_NAME_PATTERN`). All other job failures are acknowledged but skipped.
+
+5. **Jira:** Ensure the `DATA` project exists with issue type `Bug`, and that the Jira
+   MCP tool is configured with permissions to create issues and transition them.
+
+6. **Manual invocation:** You can also trigger the workflow manually:
+   `/dbt-spec-driven:ci-failure-responder` and provide a dbt Cloud run URL.
+
+### Outcomes
+
+| Scenario | Result |
+|----------|--------|
+| `code_test` failure, fix succeeds | PR opened, Jira ticket updated with link, transitioned to "Peer Review" |
+| `code_test` failure, fix blocked (3 retries exhausted) | Jira ticket updated with retry log, transitioned to "Up Next" for human pickup |
+| `data` or `infra` failure | Jira ticket created for triage, no auto-fix attempted |
+
+### Requirements (additional)
+
+- Cortex Code CLI installed and on PATH.
+- dbt Cloud account with webhook support.
+- Jira MCP tool configured (`mcp_jira_jira_create_issue`, `mcp_jira_jira_add_comment`,
+  `mcp_jira_jira_transition_issue`).
+
+---
 
 ## Roadmap
 

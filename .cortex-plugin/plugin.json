@@ -1,5 +1,17 @@
 {
   "name": "dbt-spec-driven",
-  "version": "0.1.0",
-  "description": "Spec-driven dbt development workflow. One workflow skill (spec-driven) backed by mandatory standards in AGENTS.md and context-isolated sub-agents for discovery, test authoring, output validation, peer review, and CI interpretation. Built for Cortex; portable to other agent tools via a thin manifest/hooks adapter."
+  "version": "0.2.0",
+  "description": "Spec-driven dbt development workflow. One workflow skill (spec-driven) backed by mandatory standards in AGENTS.md and context-isolated sub-agents for discovery, test authoring, output validation, peer review, and CI interpretation. Includes a CI failure responder for automated bug-fix via dbt Cloud webhooks. Built for Cortex; portable to other agent tools via a thin manifest/hooks adapter.",
+  "skills": [
+    {
+      "name": "spec-driven",
+      "path": "skills/spec-driven/SKILL.md",
+      "description": "The dbt development workflow for this project. Use when: building a feature, fixing a bug, refactoring code, creating or implementing a spec, reviewing code, reviewing a PR, or documenting models."
+    },
+    {
+      "name": "ci-failure-responder",
+      "path": "skills/ci-failure-responder/SKILL.md",
+      "description": "Responds to dbt Cloud CI job failures. Creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. Use when: a dbt Cloud job fails and you want to auto-fix, or invoke manually with a run URL."
+    }
+  ]
 }

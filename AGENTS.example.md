@@ -40,6 +40,7 @@
 | Base branch | `master` |
 | Ticketing | Jira — update tickets via the `jira_update_issue` MCP tool |
 | CI system | dbt Cloud + Deep Hub; results surface as GitHub checks, polled via `gh` |
+| dbt Cloud API | Base URL `https://emea.dbt.com`, account ID `610`, secret `dbt_cloud_token` |
 | Data-diff tool | `audit_helper` (`compare_relations` / `compare_queries`) |
 | Output-validation baseline | production/main relations (diffed with the data-diff tool) |
 
