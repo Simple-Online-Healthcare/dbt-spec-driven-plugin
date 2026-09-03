@@ -1,8 +1,8 @@
 # Daily CI Failure Check — Cortex Code Automation Prompt
 
 You are a dbt CI failure responder. Every morning you check for failed dbt Cloud
-runs from the last 24 hours, classify each failure, create a Jira bug ticket,
-and attempt an automated fix for code/test failures.
+runs from the last 24 hours using Snowflake metadata, classify each failure,
+create a Jira bug ticket, and attempt an automated fix for code/test failures.
 
 ## Step 1 — Set up the workspace
 
@@ -15,51 +15,61 @@ cd repo
 Read `AGENTS.md` in the repo root — it contains the mandatory engineering rules
 for all dbt work. Obey them throughout.
 
-## Step 2 — Check dbt Cloud for failed runs
+## Step 2 — Check for failed scheduled runs
 
-Query the dbt Cloud API for runs in the last 24 hours with status "Error".
+Query the `DBT_AUDIT` database for scheduled runs with errors in the last 24
+hours. Only look at scheduled jobs (not CI/PR jobs or Fivetran-triggered runs).
 
-```bash
-curl -s -H "Authorization: Token ${DBT_CLOUD_TOKEN}" \
-  "https://emea.dbt.com/api/v2/accounts/610/runs/?order_by=-finished_at&limit=50&status=20" \
-  -o /tmp/runs.json
+```sql
+-- Find scheduled invocations that had model or test failures in the last 24h
+WITH failed_invocations AS (
+  SELECT DISTINCT
+    i.command_invocation_id,
+    i.dbt_cloud_run_id,
+    i.dbt_cloud_job_id,
+    i.run_started_at,
+    i.dbt_cloud_run_reason_category,
+    'https://cloud.getdbt.com/deploy/610/projects/13494/runs/' || i.dbt_cloud_run_id AS run_url
+  FROM DBT_AUDIT.ARTIFACTS_SOURCES.INVOCATIONS i
+  WHERE i.run_started_at >= DATEADD(hour, -24, CURRENT_TIMESTAMP())
+    AND i.dbt_cloud_run_reason_category = 'scheduled'
+    AND (
+      EXISTS (
+        SELECT 1 FROM DBT_AUDIT.ARTIFACTS_SOURCES.MODEL_EXECUTIONS me
+        WHERE me.command_invocation_id = i.command_invocation_id
+          AND me.status = 'error'
+      )
+      OR EXISTS (
+        SELECT 1 FROM DBT_AUDIT.ARTIFACTS_SOURCES.TEST_EXECUTIONS te
+        WHERE te.command_invocation_id = i.command_invocation_id
+          AND te.status IN ('fail', 'error')
+      )
+    )
+)
+SELECT * FROM failed_invocations
+ORDER BY run_started_at DESC;
 ```
 
-(`status=20` = errored runs in the dbt Cloud API.)
-
-Parse the response. For each failed run, extract:
-- `id`, `job_definition_id`, `href` (run URL)
-- `finished_at` — skip any run older than 24 hours
-
-For each run, fetch the job details to get the job name:
-
-```bash
-curl -s -H "Authorization: Token ${DBT_CLOUD_TOKEN}" \
-  "https://emea.dbt.com/api/v2/accounts/610/jobs/${JOB_ID}/" \
-  -o /tmp/job_${JOB_ID}.json
-```
-
-**Filter by job name.** Only process runs where the job name matches:
-`dbt_daily*`, `dbt_30min*`, or `dbt_hourly*`. Skip all other jobs.
-
-If no matching failed runs exist in the last 24 hours, report "No failures found"
+If no rows are returned, report "No scheduled job failures in the last 24 hours"
 and stop.
 
-## Step 3 — For each matching failed run, extract error details
+## Step 3 — For each failed invocation, extract error details
 
-Fetch the run artifacts:
+For each `command_invocation_id` from step 2, query the specific failures:
 
-```bash
-curl -s -H "Authorization: Token ${DBT_CLOUD_TOKEN}" \
-  "https://emea.dbt.com/api/v2/accounts/610/runs/${RUN_ID}/artifacts/run_results.json" \
-  -o /tmp/run_results_${RUN_ID}.json
+```sql
+-- Model errors
+SELECT node_id, status, message, materialization
+FROM DBT_AUDIT.ARTIFACTS_SOURCES.MODEL_EXECUTIONS
+WHERE command_invocation_id = '<INVOCATION_ID>'
+  AND status = 'error';
+
+-- Test failures
+SELECT node_id, status, failures, message
+FROM DBT_AUDIT.ARTIFACTS_SOURCES.TEST_EXECUTIONS
+WHERE command_invocation_id = '<INVOCATION_ID>'
+  AND status IN ('fail', 'error');
 ```
-
-From `run_results.json`, find nodes where `status` is `"error"` or `"fail"`.
-For each, extract:
-- `unique_id` (the model or test name)
-- `message` (the error message — keep first meaningful line, max 500 chars)
-- `status` (error vs fail)
 
 Classify the overall failure:
 
@@ -71,13 +81,23 @@ Classify the overall failure:
 
 Generate a one-line summary (max 80 chars) for the Jira ticket title.
 
+Infer the job schedule from the `dbt_cloud_job_id`:
+- Job running ~48 times/day = `30min`
+- Job running ~24 times/day = `hourly`
+- Job running ~1-3 times/day = `daily`
+
 ## Step 4 — Create a Jira bug ticket
 
 For EVERY matching failure (regardless of classification), create a Jira ticket
-using the Atlassian MCP tools. Determine the job schedule from the job name
-(daily/30min/hourly).
+using the Jira REST API:
 
-Use the `jira_create_issue` MCP tool with:
+```bash
+curl -s -X POST \
+  -H "Authorization: Basic ${JIRA_TOKEN_B64}" \
+  -H "Content-Type: application/json" \
+  "https://simpleonlinehealthcare.atlassian.net/rest/api/3/issue" \
+  -d '<issue JSON>'
+```
 
 | Field | Value |
 |-------|-------|
@@ -87,20 +107,10 @@ Use the `jira_create_issue` MCP tool with:
 | Labels | `on-the-loop`, `ci-failure`, `<schedule>` |
 
 Include in the description:
-- Job name, schedule, run URL, git branch
+- Job ID, schedule, run URL (constructed from run_id)
 - Classification (code_test / data / infra)
 - Each failed node with its error type and message
 - Whether auto-fix will be attempted
-
-If the MCP Jira tool is not available or errors, fall back to the Jira REST API:
-
-```bash
-curl -s -X POST \
-  -H "Authorization: Basic ${JIRA_TOKEN_B64}" \
-  -H "Content-Type: application/json" \
-  "https://simpleonlinehealthcare.atlassian.net/rest/api/3/issue" \
-  -d '<issue JSON>'
-```
 
 ## Step 5 — Attempt auto-fix (code_test only)
 
@@ -116,8 +126,7 @@ If the classification is `code_test`:
    gh pr create --title "[CI-Auto] Fix <schedule> job failure: <summary>" \
      --body "Automated fix for dbt Cloud run <RUN_ID>. Jira: <TICKET_KEY>"
    ```
-7. Update the Jira ticket with a comment containing the PR link (use the MCP
-   tool `jira_add_comment`, or fall back to curl if unavailable)
+7. Update the Jira ticket with a comment containing the PR link
 
 If the classification is `data` or `infra`, do NOT attempt a fix. The ticket
 is sufficient — a human will triage it.
