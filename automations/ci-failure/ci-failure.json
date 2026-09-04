@@ -31,8 +31,8 @@
   },
   "setup": {
     "dbt_cloud": {
-      "base_url": "https://emea.dbt.com",
-      "account_id": 610,
+      "base_url": "https://cloud.getdbt.com",
+      "account_id": "<your-account-id>",
       "secret_name": "dbt_cloud_token",
       "description": "Store your dbt Cloud service token: `cortex secret store dbt_cloud_token --from-file <path>`. The token needs Read access to jobs and runs."
     },

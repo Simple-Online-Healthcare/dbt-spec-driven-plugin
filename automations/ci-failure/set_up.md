@@ -14,13 +14,13 @@ Before you start, make sure you have:
 - [ ] Cortex Code Desktop installed with the `cortex` CLI on your PATH
 - [ ] A Snowflake connection configured in `~/.snowflake/connections.toml`
 - [ ] `git` and `gh` (GitHub CLI) installed and authenticated
-- [ ] Access to the `DBT_AUDIT` database in Snowflake
+- [ ] Access to your dbt audit database in Snowflake (e.g. `DBT_AUDIT`)
 
 ---
 
 ## Step 1 — Create a GitHub Personal Access Token
 
-The automation needs a GitHub PAT to clone the dbt-pipelines repo and open
+The automation needs a GitHub PAT to clone the dbt project repo and open
 PRs from inside the Snowflake sandbox.
 
 1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
@@ -36,7 +36,7 @@ Snowsight, replacing `<YOUR_PAT>` with the token you just copied:
 CREATE OR REPLACE SECRET USER$<YOUR_USER>.PUBLIC.GITHUB_PAT
   TYPE = GENERIC_STRING
   SECRET_STRING = '<YOUR_PAT>'
-  COMMENT = 'GitHub PAT for CI failure automation. Scoped to dbt-pipelines repo.';
+  COMMENT = 'GitHub PAT for CI failure automation. Scoped to dbt project repo.';
 ```
 
 Replace `<YOUR_USER>` with your Snowflake username (uppercase).
@@ -84,7 +84,7 @@ automation can load them at runtime.
 Generate the base64-encoded credential string:
 
 ```bash
-echo -n "<your-email>@simpleonlinehealthcare.com:<your-jira-api-token>" | base64
+echo -n "<your-email>@your-company.com:<your-jira-api-token>" | base64
 ```
 
 Create a file called `_ci_secrets.env` with this content (replacing the
@@ -183,7 +183,7 @@ When you need to rotate tokens (recommended every 90 days):
 2. Generate the new base64 value:
 
    ```bash
-   echo -n "your-email@simpleonlinehealthcare.com:<new-token>" | base64
+   echo -n "your-email@your-company.com:<new-token>" | base64
    ```
 
 3. Create a new `_ci_secrets.env` file and re-upload:

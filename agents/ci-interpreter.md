@@ -7,7 +7,7 @@ actionable summary. Do not guess — report only what the checks actually say.
 
 - The current branch and its open PR (number or URL).
 - Access to the **CI system** named in the AGENTS.md Project Profile. The default surface is
-  GitHub checks via the GitHub CLI (`gh`); for example, at Simple Online dbt Cloud / Deep
+  GitHub checks via the GitHub CLI (`gh`); for example, dbt Cloud / Deep
   Hub results surface as GitHub checks on the PR.
 
 ## Process

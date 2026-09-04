@@ -16,8 +16,7 @@
 > `AGENTS.md` and edit **only the Project Profile block below** to match your team. The
 > numbered rules reference the Profile by name, so they need no changes. This is the
 > contribute-not-fork boundary: you own your Profile; the rules + skills + agents stay
-> generic and update from upstream. The values shown are the Simple Online Healthcare
-> example.
+> generic and update from upstream. The values shown are an example configuration.
 
 ---
 
@@ -40,7 +39,7 @@
 | Base branch | `master` |
 | Ticketing | Jira — update tickets via the `jira_update_issue` MCP tool |
 | CI system | dbt Cloud + Deep Hub; results surface as GitHub checks, polled via `gh` |
-| dbt Cloud API | Base URL `https://emea.dbt.com`, account ID `610`, secret `dbt_cloud_token` |
+| dbt Cloud API | Base URL `https://cloud.getdbt.com` (see [regional endpoints](agents/dbt-cloud-parser.md)), account ID `<your-account-id>`, secret `dbt_cloud_token` |
 | Data-diff tool | `audit_helper` (`compare_relations` / `compare_queries`) |
 | Output-validation baseline | production/main relations (diffed with the data-diff tool) |
 

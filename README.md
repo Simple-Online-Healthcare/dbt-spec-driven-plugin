@@ -40,8 +40,7 @@ materializations, incremental threshold, macros location, lint config, specs loc
 
 To adopt the plugin you edit **only** your Profile. The generic core stays untouched and
 updates cleanly from upstream — so improvements flow back as contributions rather than
-divergent forks. The values shipped in `AGENTS.example.md` are the Simple Online Healthcare
-example.
+divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 
 ## Requirements
 
