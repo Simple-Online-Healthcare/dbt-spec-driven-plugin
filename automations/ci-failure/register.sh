@@ -9,12 +9,11 @@
 #   2. A GITHUB_PAT secret in your personal DB (USER$<you>.PUBLIC.GITHUB_PAT)
 #   3. A _ci_secrets.env file uploaded to your workspace stage
 #
-# To set up prerequisites 2 and 3, run:
-#   bash automations/setup-secrets.sh
+# For full setup instructions, see automations/ci-failure/set_up.md
 #
 # Usage:
-#   bash automations/register.sh
-#   bash automations/register.sh -c my-connection
+#   bash automations/ci-failure/register.sh
+#   bash automations/ci-failure/register.sh -c my-connection
 
 set -euo pipefail
 
@@ -71,4 +70,4 @@ cortex automation create \
 echo ""
 echo "Done. Verify with: cortex automation describe ci_failure_responder"
 echo ""
-echo "If you haven't set up secrets yet, run: bash automations/setup-secrets.sh"
+echo "If you haven't set up secrets yet, see: automations/ci-failure/set_up.md"
