@@ -48,7 +48,7 @@ run_url: string
 git_branch: string      — branch the job ran against (typically the base branch)
 failed_steps: [
   {
-    model_or_test: string   — e.g. "stg_soh_uk__orders" or "not_null_orders_order_id"
+    model_or_test: string   — e.g. "stg_example_source__orders" or "not_null_orders_order_id"
     error_type: string      — "compilation" | "runtime" | "test_failure" | "freshness"
     error_message: string   — the raw error message
     file_path: string       — path to the failing model/test if resolvable

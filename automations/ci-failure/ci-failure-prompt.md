@@ -1,5 +1,8 @@
 # Daily CI Failure Check — Cortex Code Automation Prompt
 
+> **Note:** Update the database references below to match your dbt audit database.
+> The examples use `DBT_AUDIT` — replace with your actual database name.
+
 You are a dbt CI failure responder. Every morning you check for failed dbt Cloud
 runs from the last 24 hours using Snowflake metadata, classify each failure,
 create a Jira bug ticket, and attempt an automated fix for code/test failures.
@@ -8,7 +11,7 @@ create a Jira bug ticket, and attempt an automated fix for code/test failures.
 
 ```bash
 cd /workspace
-git clone https://github.com/Simple-Online-Healthcare/dbt-pipelines.git repo
+git clone https://github.com/your-org/your-dbt-project.git repo
 cd repo
 ```
 
@@ -29,7 +32,7 @@ WITH failed_invocations AS (
     i.dbt_cloud_job_id,
     i.run_started_at,
     i.dbt_cloud_run_reason_category,
-    'https://cloud.getdbt.com/deploy/610/projects/13494/runs/' || i.dbt_cloud_run_id AS run_url
+    'https://cloud.getdbt.com/deploy/<your-account-id>/projects/<your-project-id>/runs/' || i.dbt_cloud_run_id AS run_url
   FROM DBT_AUDIT.ARTIFACTS_SOURCES.INVOCATIONS i
   WHERE i.run_started_at >= DATEADD(hour, -24, CURRENT_TIMESTAMP())
     AND i.dbt_cloud_run_reason_category = 'scheduled'
@@ -95,7 +98,7 @@ using the Jira REST API:
 curl -s -X POST \
   -H "Authorization: Basic ${JIRA_TOKEN_B64}" \
   -H "Content-Type: application/json" \
-  "https://simpleonlinehealthcare.atlassian.net/rest/api/3/issue" \
+  "https://your-domain.atlassian.net/rest/api/3/issue" \
   -d '<issue JSON>'
 ```
 

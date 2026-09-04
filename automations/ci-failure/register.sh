@@ -64,7 +64,7 @@ cortex automation create \
   --schedule "daily at 8am" \
   --timezone Europe/London \
   --github "${GITHUB_SECRET}" \
-  --pre-run-hook 'source /workspace/_ci_secrets.env && cd /workspace && git clone https://github.com/Simple-Online-Healthcare/dbt-pipelines.git repo && cd repo' \
+  --pre-run-hook 'source /workspace/_ci_secrets.env && cd /workspace && git clone https://github.com/your-org/your-dbt-project.git repo && cd repo' \
   "${CONN_ARGS[@]}"
 
 echo ""

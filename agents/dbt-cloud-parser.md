@@ -16,8 +16,8 @@ The agent requires these values (sourced from environment or the AGENTS.md Proje
 | Parameter | Source | Example |
 |-----------|--------|---------|
 | `DBT_CLOUD_TOKEN` | Cortex secret `dbt_cloud_token` (use `secret_env`) | `dbtc_...` |
-| `DBT_CLOUD_BASE_URL` | AGENTS.md Profile or default | `https://emea.dbt.com` |
-| `DBT_CLOUD_ACCOUNT_ID` | AGENTS.md Profile or extracted from run URL | `610` |
+| `DBT_CLOUD_BASE_URL` | AGENTS.md Profile or default | `https://cloud.getdbt.com` |
+| `DBT_CLOUD_ACCOUNT_ID` | AGENTS.md Profile or extracted from run URL | `12345` |
 
 **Regional endpoints:**
 
@@ -41,7 +41,7 @@ infer the region from the URL host. If only a run ID is provided, use the config
    - `git_branch` — the branch/ref the job ran against.
 
 2. **Extract failed steps.** For each step that errored:
-   - `model_or_test` — the dbt node name (e.g. `stg_soh_uk__orders`, `not_null_orders_order_id`).
+   - `model_or_test` — the dbt node name (e.g. `stg_example_source__orders`, `not_null_orders_order_id`).
    - `error_type` — classify:
      - `compilation` — SQL compilation error, Jinja rendering failure, missing ref/source.
      - `runtime` — database error during execution (syntax accepted but execution failed).
@@ -60,7 +60,7 @@ infer the region from the URL host. If only a run ID is provided, use the config
    | Mixed: at least one `code_test` AND one `data`/`infra` | Use the majority; if tied, prefer `code_test` (attempt the fix for fixable parts) |
 
 4. **Generate summary** — one-line plain-English description of the failure suitable for
-   a Jira ticket title (max 80 chars). Example: `"stg_soh_uk__orders compilation error: missing source column"`.
+   a Jira ticket title (max 80 chars). Example: `"stg_example_source__orders compilation error: missing source column"`.
 
 ## Webhook payload reference
 
@@ -97,7 +97,7 @@ dbt Cloud `job.run.errored` webhook body (key fields):
 If only a run URL/ID is provided (manual invocation):
 
 1. **Resolve the base URL:** If a full URL is given (e.g.
-   `https://cloud.getdbt.com/deploy/610/projects/13494/runs/50798371`), extract the
+   `https://cloud.getdbt.com/deploy/12345/projects/67890/runs/11111`), extract the
    host to determine the regional endpoint. If only a numeric run ID, use the
    configured `DBT_CLOUD_BASE_URL`.
 
@@ -145,14 +145,14 @@ run_id: 11111
 run_url: "https://cloud.getdbt.com/deploy/12345/projects/67890/runs/11111"
 git_branch: "master"
 failed_steps:
-  - model_or_test: "stg_soh_uk__orders"
+  - model_or_test: "stg_example_source__orders"
     error_type: "compilation"
-    error_message: "Compilation Error in model stg_soh_uk__orders: column 'order_status' not found in source"
-    file_path: "models/staging/soh_uk/stg_soh_uk__orders.sql"
+    error_message: "Compilation Error in model stg_example_source__orders: column 'order_status' not found in source"
+    file_path: "models/staging/example_source/stg_example_source__orders.sql"
   - model_or_test: "not_null_orders_order_sk"
     error_type: "test_failure"
     error_message: "Test not_null_orders_order_sk failed: 3 rows returned"
     file_path: "models/marts/orders/_orders__models.yml"
 classification: "code_test"
-summary: "stg_soh_uk__orders compilation error + downstream test failure"
+summary: "stg_example_source__orders compilation error + downstream test failure"
 ```
