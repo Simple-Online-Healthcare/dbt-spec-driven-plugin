@@ -16,7 +16,7 @@ a thin manifest/hooks adapter.
 | `skills/spec-driven/` | The single workflow skill. Routes by intent (feature / bug / refactor / standalone review / standalone docs) and orchestrates the gated phases. |
 | `agents/` | Sub-agents for heavy, context-isolated steps: `discovery`, `test-author`, `output-validator`, `peer-reviewer`, `ci-interpreter`. |
 | `skills/ci-failure-responder/` | Responds to dbt Cloud job failures: creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. |
-| `automations/ci-failure.json` | Cortex Code Automations config for webhook-triggered invocation of ci-failure-responder. |
+| `automations/ci-failure/` | Cloud automation config, prompt, runner, and setup guide for the CI failure responder. See [`set_up.md`](./automations/ci-failure/set_up.md). |
 | `hooks/hooks.json` | Auto-loads `AGENTS.md` at session start, warns before context compaction, and appends a session note on exit. Cross-platform (bash + PowerShell). |
 
 ### Design principle
