@@ -42,6 +42,7 @@
 | dbt Cloud API | Base URL `https://cloud.getdbt.com` (see [regional endpoints](agents/dbt-cloud-parser.md)), account ID `<your-account-id>`, secret `dbt_cloud_token` |
 | Data-diff tool | `audit_helper` (`compare_relations` / `compare_queries`) |
 | Output-validation baseline | production/main relations (diffed with the data-diff tool) |
+| Hash validation (refactors) | `HASH(*)` + `BIT_XOR_AGG`; clone baseline; exclude columns listed in spec's hash-exclude |
 
 ---
 
