@@ -2,3 +2,4 @@
 .cortex/notes/
 workflow-state.md
 .snowflake/
+automations/config.env

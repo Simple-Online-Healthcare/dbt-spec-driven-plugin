@@ -19,7 +19,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+AUTO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONN_ARGS=("$@")
+
+# Load config (non-secret values: repo URL, Jira domain, etc.)
+CONFIG_FILE="${AUTO_DIR}/config.env"
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "Missing ${CONFIG_FILE}"
+  echo "Copy automations/config.env.example to automations/config.env and fill in your values."
+  exit 1
+fi
+# shellcheck source=../config.env
+source "$CONFIG_FILE"
 
 # Detect current Snowflake user
 echo "Detecting Snowflake user..."
@@ -50,6 +61,8 @@ echo "  User:          $SF_USER"
 echo "  GitHub secret: $GITHUB_SECRET"
 echo "  Workspace:     USER\$${SF_USER}.PUBLIC.DEFAULT\$ (/_ci_secrets.env)"
 echo "  Prompt:        ${SCRIPT_DIR}/on-the-loop-prompt.md"
+echo "  Repo:          $REPO_URL"
+echo "  Jira domain:   $JIRA_DOMAIN"
 echo "  Schedule:      weekdays at 9am Europe/London"
 echo ""
 read -p "Continue? [y/N] " -r
@@ -58,14 +71,22 @@ read -p "Continue? [y/N] " -r
 echo "Dropping existing automation (if any)..."
 cortex automation drop on_the_loop_responder "${CONN_ARGS[@]}" 2>/dev/null || true
 
+# Substitute placeholders in the prompt template
+PROMPT_TMP=$(mktemp)
+trap 'rm -f "$PROMPT_TMP"' EXIT
+sed \
+  -e "s|https://github.com/your-org/your-dbt-project.git|${REPO_URL}|g" \
+  -e "s|your-domain.atlassian.net|${JIRA_DOMAIN}|g" \
+  "${SCRIPT_DIR}/on-the-loop-prompt.md" > "$PROMPT_TMP"
+
 echo "Creating automation..."
 cortex automation create \
   --name on_the_loop_responder \
-  --prompt-file "${SCRIPT_DIR}/on-the-loop-prompt.md" \
+  --prompt-file "$PROMPT_TMP" \
   --schedule "weekdays at 9am" \
   --timezone Europe/London \
   --github "${GITHUB_SECRET}" \
-  --pre-run-hook 'source /workspace/_ci_secrets.env && cd /workspace && git clone https://github.com/your-org/your-dbt-project.git repo && cd repo' \
+  --pre-run-hook "source /workspace/_ci_secrets.env && cd /workspace && git clone ${REPO_URL} repo && cd repo" \
   "${CONN_ARGS[@]}"
 
 echo ""
