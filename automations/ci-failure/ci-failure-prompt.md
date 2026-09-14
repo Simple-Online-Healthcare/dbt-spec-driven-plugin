@@ -108,7 +108,7 @@ curl -s -X POST \
 | Project | `DATA` |
 | Issue type | `Bug` |
 | Summary | `[CI-Auto] <schedule> job failure: <summary>` |
-| Labels | `on-the-loop`, `ci-failure`, `<schedule>` |
+| Labels | `on-the-loop`, `ci-failure`, `<classification>`, `<schedule>` |
 
 Include in the description:
 - Job ID, schedule, run URL (constructed from run_id)
