@@ -132,6 +132,70 @@ AI_VERIFIED_QUERIES (
 
 ---
 
+## Inconsistent Measure Families
+
+**Failure mode:** a semantic view can reconcile perfectly against its own upstream dbt
+model — via `output-validator`'s standard baseline diff — and still be **wrong**, if the
+metric was mapped to the wrong measure family in the equivalent Looker explore. This is
+a silent failure — no test catches it, because the mismatch is in *meaning*, not schema
+or row counts. It's the reason Looker reconciliation is a separate, mandatory check (see
+the Validation Criteria template below), not something the dbt-model diff subsumes.
+
+**The trap:** the same underlying dimension can have multiple measure families in the
+same explore, or the same-sounding default name can mean opposite things across
+explores.
+
+**Worked example (found on DATA-1762):**
+
+- Looker's `clickstream_session_funnel` explore defines two parallel families per funnel
+  stage:
+  - Default/unprefixed measures — **closed-funnel**: a session only counts at stage N if
+    it also satisfied every prior stage (cumulative `AND`-gate).
+  - `open_*`-prefixed measures — **open-funnel**: a session counts at stage N if that
+    single flag is true, with no gating on prior stages.
+  - A semantic view metric written as a naive `COUNT(CASE WHEN <flag> THEN ...)` matches
+    the `open_*` family, not the default one — on `added_to_cart` this produced a 16%
+    silent discrepancy against the dashboard stakeholders trusted.
+- `acquisition_master`'s explore inverts the convention: its *default* measures are
+  **open**-funnel (inherited from `acquisition_master.sql`'s `count_if(single_flag)`
+  logic), the opposite of `clickstream_session_funnel`'s defaults. Same-looking
+  "default" measure names, opposite semantics, in different explores in the same LookML
+  repo.
+
+**How to check for it (mandatory per `semantic-view-author.md` step 0):**
+
+1. Read the measure SQL verbatim — never infer behavior from the measure name alone.
+2. If a measure's `sql:` contains `filters:` gating or references other measures/stage
+   flags cumulatively, it's a closed-funnel (or otherwise gated) definition — flag it.
+3. If the explore defines more than one measure over the same dimension (e.g. a default
+   and a prefixed variant), confirm explicitly which one the metric is meant to match —
+   do not assume the unprefixed one is the "plain"/simplest definition.
+4. Do not assume a naming convention holds across explores. Check each explore's
+   convention independently, even if you've seen the pattern before in a sibling explore.
+
+---
+
+## Validation Criteria Template (Looker Reconciliation)
+
+WHERE a corresponding Looker explore exists for the semantic view under construction,
+the spec's Validation Criteria (Specify phase) MUST include a criterion reconciling
+against it — in addition to (not instead of) the standard dbt-model reconciliation:
+
+```
+VAL-xxx (Objective, REQ-<id>): For a fixed period <date range>, the semantic view metric
+  <table>.<metric> reconciles to the equivalent Looker measure <explore>.<measure> within
+  <tolerance, default 0>. Evidence: metric query result vs Looker measure query result,
+  same period and filters, both values shown.
+```
+
+`output-validator` executes this criterion as part of its normal data-delta step: run
+the semantic view's metric for the period, run (or ask the user to run, if Looker access
+is not agent-available) the equivalent Looker measure for the same period, and compare.
+A tolerance above 0 must be justified in the spec (e.g. known timezone rounding) — default
+to exact match.
+
+---
+
 ## Synonym & Sample Value Rules
 
 - Synonyms must be **unique across the entire semantic model** (no duplicates between

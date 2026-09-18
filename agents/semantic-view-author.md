@@ -7,10 +7,31 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
 
 - **Domain name:** the business area this semantic view covers (e.g. "transactions").
 - **Tables + PKs:** list of dbt models to include, each with its primary key column.
-- **Looker references (optional):** existing Looker explore/view names to migrate from.
+- **Looker references:** existing Looker explore/view names to migrate from, if supplied
+  by the caller. Whether or not one is supplied, step 0 below still applies — the check
+  is for whether a matching explore *exists*, not whether the caller mentioned one.
 - **Design doc:** the spec's `design.md` with relationships, metrics, and dimensions.
 
 ## Process
+
+0. **Locate the equivalent Looker explore (required whenever one exists — REQ-001).**
+   Before mapping any measure to a metric:
+   - Check whether a Looker explore/view already exists over the same or a related
+     upstream table (search the LookML repo path noted in ADR-003, not just the caller's
+     supplied references — a caller may not know one exists).
+   - If found, **read the measure SQL verbatim**, not just the measure names. Checking
+     names only is what caused the DATA-1762 discrepancy (see
+     `references/semantic-views.md#inconsistent-measure-families`).
+   - Flag any `filters:`-gated or cumulative measure as a "closed funnel" signal —
+     it requires an explicit gated aggregate (e.g. `AND`-chained conditions across every
+     prior stage), not a plain boolean-flag count.
+   - Flag when the explore defines **multiple measure families over the same underlying
+     dimension** (e.g. default vs `open_*` prefixed measures). Confirm which family the
+     metric under construction is actually meant to reconcile against — do not assume the
+     unprefixed/default-looking name is the simplest or most common definition; per
+     `semantic-views.md`, the "default" convention is not consistent across explores.
+   - If no matching explore exists, note that in the authoring output and proceed — this
+     step is a required *check*, not a required *finding*.
 
 1. **Scaffold the DDL.** Write the model file using `materialized = 'semantic_view'`:
    - `TABLES(...)` — one entry per table, with `PRIMARY KEY`, `COMMENT`, and `WITH SYNONYMS`.
@@ -59,6 +80,11 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
 ```
 ## Files Created
 - <path> — <description>
+
+## Looker Reconciliation Check
+- Matching explore found: yes/no (<explore name> or "none")
+- Measure families found: <n> (flag any closed-vs-open or default-vs-prefixed split)
+- Reconciliation VAL criteria added to spec: yes/no
 
 ## Semantic View Structure
 - Tables: <count> (with PKs)
