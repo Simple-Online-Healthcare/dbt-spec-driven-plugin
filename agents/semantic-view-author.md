@@ -30,6 +30,10 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
      metric under construction is actually meant to reconcile against — do not assume the
      unprefixed/default-looking name is the simplest or most common definition; per
      `semantic-views.md`, the "default" convention is not consistent across explores.
+   - **Create or verify a `VAL-xxx` Looker-reconciliation criterion** in the spec, using
+     the template in `semantic-views.md#validation-criteria-template-looker-reconciliation`.
+     This step is not complete until that criterion exists in the spec — do not just report
+     whether one was added; add it yourself if the spec is missing it.
    - If no matching explore exists, note that in the authoring output and proceed — this
      step is a required *check*, not a required *finding*.
 
@@ -84,7 +88,8 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
 ## Looker Reconciliation Check
 - Matching explore found: yes/no (<explore name> or "none")
 - Measure families found: <n> (flag any closed-vs-open or default-vs-prefixed split)
-- Reconciliation VAL criteria added to spec: yes/no
+- Reconciliation VAL-xxx criterion present in spec: yes (required if a matching explore
+  was found — this step is incomplete otherwise) / n/a (no matching explore)
 
 ## Semantic View Structure
 - Tables: <count> (with PKs)

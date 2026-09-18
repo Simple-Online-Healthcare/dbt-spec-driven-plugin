@@ -165,8 +165,9 @@ explores.
 **How to check for it (mandatory per `semantic-view-author.md` step 0):**
 
 1. Read the measure SQL verbatim — never infer behavior from the measure name alone.
-2. If a measure's `sql:` contains `filters:` gating or references other measures/stage
-   flags cumulatively, it's a closed-funnel (or otherwise gated) definition — flag it.
+2. If a measure has a sibling `filters:` parameter (gating which rows count, not embedded
+   in the `sql:` value) or its `sql:` references other measures/stage flags cumulatively,
+   it's a closed-funnel (or otherwise gated) definition — flag it.
 3. If the explore defines more than one measure over the same dimension (e.g. a default
    and a prefixed variant), confirm explicitly which one the metric is meant to match —
    do not assume the unprefixed one is the "plain"/simplest definition.

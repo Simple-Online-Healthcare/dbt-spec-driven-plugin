@@ -61,14 +61,18 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
    headline-metric reconciliation.
 6a. **Looker reconciliation (semantic views only, when a `VAL-xxx` names it).** Per
    `references/semantic-views.md`'s Validation Criteria template, if the spec includes a
-   VAL criterion reconciling a semantic view metric against a Looker measure: run the
-   semantic view metric for the criterion's period, obtain the equivalent Looker measure
-   value for the same period (query it directly if agent-accessible, otherwise ask the
-   user to run it and supply the value), and compare within the criterion's stated
-   tolerance (default: exact match). This checks divergence from Looker, which the
-   dbt-model baseline diff in step 6 cannot catch — a metric can match its own upstream
-   model and still reconcile to the wrong Looker measure family (see
-   `semantic-views.md#inconsistent-measure-families`). Record both values as evidence.
+   VAL criterion reconciling a semantic view metric against a Looker measure: apply the
+   criterion's exact period and filter set **identically** to both queries — run the
+   semantic view metric with those filters for that period, and obtain the equivalent
+   Looker measure value with the same filters for the same period (query it directly if
+   agent-accessible, otherwise ask the user to run it with those exact filters and supply
+   the value). Compare within the criterion's stated tolerance (default: exact match). This
+   checks divergence from Looker, which the dbt-model baseline diff in step 6 cannot catch
+   — a metric can match its own upstream model and still reconcile to the wrong Looker
+   measure family (see `semantic-views.md#inconsistent-measure-families`). A mismatched
+   period or filter slice between the two queries invalidates the comparison, so record as
+   evidence: the exact filters/period applied, each query's provenance (agent-run vs
+   user-supplied), and both raw results — not just the pass/fail verdict.
 7. **Cleanup:** Drop all cloned baselines created in step 3:
    `DROP TABLE IF EXISTS <dev_schema>.__baseline_<model>;`
 8. **Evaluate each `VAL-xxx`:**
@@ -115,7 +119,7 @@ Self-validatable: YES | NO  (YES only if all criteria Objective and passed)
 - metric reconcile: <…>
 
 ### Looker reconciliation (semantic views, when VAL-xxx names it)
-- <metric> vs <explore>.<measure>, period <range>: semantic view = <value>, Looker = <value> — MATCH | MISMATCH (delta: <…>)
+- <metric> vs <explore>.<measure>, period <range>, filters <applied filters>: semantic view = <value> (agent-run), Looker = <value> (agent-run | user-supplied) — MATCH | MISMATCH (delta: <…>)
 
 ### Criteria
 - VAL-001 (Objective, REQ-001): PASS | FAIL — evidence: <…>
