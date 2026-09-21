@@ -5,8 +5,7 @@ A spec-driven dbt development workflow for agentic IDEs, shipped as a
 enforces: **discover & fact-check → specify → design → implement → validate output →
 review → ship**, with mandatory engineering rules and context-isolated sub-agents.
 
-Built for Cortex; the content (skills, rules, agents) is portable to other agent tools via
-a thin manifest/hooks adapter.
+This plugin is **Cortex-only**. There is no adapter layer for other IDEs.
 
 ## What's in the box
 
@@ -14,10 +13,11 @@ a thin manifest/hooks adapter.
 |-----------|---------|
 | `AGENTS.example.md` | The mandatory, blocking engineering rules + a **Project Profile** (the only team-specific block). Copy to your dbt repo root as `AGENTS.md` and edit the Profile. |
 | `skills/spec-driven/` | The single workflow skill. Routes by intent (feature / bug / refactor / standalone review / standalone docs) and orchestrates the gated phases. |
-| `agents/` | Sub-agents for heavy, context-isolated steps: `discovery`, `test-author`, `output-validator`, `peer-reviewer`, `ci-interpreter`. |
+| `agents/` | Sub-agents: `discovery`, `spec-author`, `test-author`, `output-validator`, `peer-reviewer`, `ci-interpreter`, plus `semantic-view-author` / `quality-auditor`. |
 | `skills/ci-failure-responder/` | Responds to dbt Cloud job failures: creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. |
+| `skills/{spec-review,spec-debt,verify-this,ci-loop,quality-audit,pr-ergonomics,work-summary}/` | Optional side doors. Never injected into a one-line bug. |
 | `automations/ci-failure/` | Cloud automation config, prompt, runner, and setup guide for the CI failure responder. See [`set_up.md`](./automations/ci-failure/set_up.md). |
-| `hooks/hooks.json` | Auto-loads `AGENTS.md` at session start, warns before context compaction, and appends a session note on exit. Cross-platform (bash + PowerShell). |
+| `hooks/hooks.json` | Advisory reminders **and** a blocking `PreToolUse` lock (`scripts/hooks/require-delegation.js`). Dual bash + PowerShell for the advisory hooks. |
 
 ### Design principle
 
@@ -36,7 +36,8 @@ Everything team-specific lives in **one place**: the **Project Profile** table a
 of `AGENTS.md`. The skills, sub-agents, and numbered rules are fully generic — they
 reference Profile values by name (layers, prefixes, naming pattern, surrogate macro,
 materializations, incremental threshold, macros location, lint config, specs location,
-**base branch**, **ticketing**, **CI system**, **data-diff tool**, validation baseline).
+**base branch**, **ticketing**, **CI system**, **data-diff tool**, validation baseline,
+**context ledger**, **PR template**, **max file size**).
 
 To adopt the plugin you edit **only** your Profile. The generic core stays untouched and
 updates cleanly from upstream — so improvements flow back as contributions rather than
@@ -44,7 +45,8 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 
 ## Requirements
 
-- Cortex Code / Cortex Desktop.
+- Cortex Code / Cortex Desktop. Cortex-only — no Cursor/other-IDE adapter.
+- `node` on PATH (the blocking hook is a Node script).
 - `git` and the GitHub CLI (`gh`, authenticated) for the Ship phase.
 - `jq` on PATH for the hooks **on macOS/Linux** (the POSIX hook variants use it; the
   Windows/PowerShell variants use built-in cmdlets and need no `jq`).
@@ -71,20 +73,33 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 
 ## The workflow
 
-1. **Discover & Fact-Check** (mandatory first gate) — `discovery` agent verifies/disproves
-   assumptions and maps lineage. No solutioning until this passes.
-2. **Specify** — EARS requirements (`REQ-xxx`) + tagged Validation Criteria (`VAL-xxx`,
-   objective/subjective); posted to your ticketing system.
-3. **Design** — technical approach + lineage impact (features/refactors).
-4. **Implement** — code that satisfies `AGENTS.md`; tests via `test-author`.
-5. **Validate Output** — `output-validator` checks the data outcome vs the spec (schema +
-   data-diff vs baseline). Self-validates objective/ground-truth criteria; hard-gates
-   subjective ones for human sign-off.
-6. **Review** — `peer-reviewer` (qualitative; reads the Validation Report).
-7. **Ship** — commit, push, open PR, and interpret CI via `ci-interpreter`.
+1. **Discover & Fact-Check** (mandatory first gate) — grill-with-docs into `grill-notes.md`,
+   then `discovery` verifies/disproves assumptions. Depth follows the route (a one-line
+   bug is 1–3 questions, not a design interview).
+2. **Specify** — `spec-author` writes `requirements.md` (EARS `REQ-xxx` + tagged `VAL-xxx`).
+3. **Design** — `spec-author` writes `design.md` on feature/semantic-view (and refactor if
+   structure changes). Bugs skip Design unless a structural choice is recorded.
+4. **Implement** — code that satisfies `AGENTS.md`; tests via `test-author` at a named seam.
+5. **Validate Output** — `output-validator` writes `validation-report.md`. Hash/CLONE on
+   refactors; Looker reconciliation when a VAL names it.
+6. **Review** — `peer-reviewer` on two axes: Standards vs Spec.
+7. **Ship** — commit, push, open PR, interpret CI via `ci-interpreter`. The ship-gate
+   refuses push/PR if a named agent never ran.
 
-Bug fixes and refactors use condensed paths; standalone "review my PR" and
-"document this model" jump straight to the relevant phase.
+A one-line bug does **not** run the feature interview. Capability skills stay optional.
+
+### Why the hooks now refuse work
+
+Advisory hooks used to only leave a reminder. `SubagentStop` never fires if the agent
+was never started — so partial delegation was invisible. This plugin now refuses two
+tool calls:
+
+- writing `models/**/*.sql` before Discover is done
+- `git push` / `gh pr create` if a named agent never ran
+
+Escape: `DBT_SPEC_DRIVEN_ENFORCE=off`. The hook fails open if it cannot parse state.
+Specs are still two files (`requirements.md` + `design.md`). Interview notes go in
+`grill-notes.md`. Durable terms go in the Profile **context ledger** in the dbt repo.
 
 ## CI Failure Auto-Fix (on-the-loop)
 
@@ -167,8 +182,6 @@ Cloud job failures. When a scheduled job (daily, 30-min, hourly) fails, it:
 - **On-the-loop autonomy.** Use the `output-validator`'s `Self-validatable: YES` marker to
   let ground-truth tasks (bugs/refactors) run with reduced human gating; pair with git
   worktrees for parallel branches.
-- **Cross-tool adapter.** Package the manifest/hooks variants needed to run the same core
-  under other agent IDEs.
 - **Notification integration** (e.g. Teams/Slack) as a Profile key.
 
 ## License

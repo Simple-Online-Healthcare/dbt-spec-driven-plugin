@@ -10,15 +10,18 @@ tests against the requirements/spec, not against the implementation's quirks.
 
 ## Process
 
-1. **Mandatory coverage (from `AGENTS.md` §5).** Every intermediate/mart model must have
+1. **Name the seam first.** Before writing a test, name the smallest surface that
+   would fail if the requirement were broken (a column, a grain, a singular query).
+   Write the test against that seam, not against the implementation's internals.
+2. **Mandatory coverage (from `AGENTS.md` §5).** Every intermediate/mart model must have
    `unique` + `not_null` on its primary key. Add these if missing.
-2. **Requirement-driven tests.** For each `REQ-xxx` / regression-guard item with a
+3. **Requirement-driven tests.** For each `REQ-xxx` / regression-guard item with a
    testable assertion, add a test that fails before the change and passes after:
    - Prefer built-in/`dbt_utils` generic tests (`accepted_values`, `relationships`,
      `not_null`, expression tests) in YAML.
    - Use a singular test (`tests/`) only when a generic test cannot express the rule.
-3. **Sources.** Ensure freshness tests exist for any source the change relies on.
-4. **Run** `dbt build`/`dbt test` on the selected models and confirm the new tests pass
+4. **Sources.** Ensure freshness tests exist for any source the change relies on.
+5. **Run** `dbt build`/`dbt test` on the selected models and confirm the new tests pass
    (and that PK tests actually fail when fed bad data, where feasible).
 
 ## Constraints
@@ -37,6 +40,9 @@ one-time validation. This is the TDD ratchet: today's validated outcome is tomor
 ## Output (return to caller)
 
 ```
+## Seam
+- <what would break if the requirement failed>
+
 ## Tests added/updated
 - <model>.<column> → <test> (covers REQ-xxx)
 

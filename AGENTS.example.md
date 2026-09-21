@@ -34,6 +34,7 @@
 | Materialization defaults | staging `view`, intermediate `view`, marts `table` |
 | Incremental runtime threshold | ~10 min |
 | Reusable-logic location | `/macros` |
+| Models location | `dbt/models/` (also where `<model>_issues.md` review ledgers are written) |
 | Lint config | `dbt/.sqlfluff` (SQLFluff) |
 | Specs location | `dbt/specs/` (spec dirs named `<dd-mm-yy>-<name>/`) |
 | Base branch | `master` |
@@ -43,6 +44,12 @@
 | Data-diff tool | `audit_helper` (`compare_relations` / `compare_queries`) |
 | Output-validation baseline | production/main relations (diffed with the data-diff tool) |
 | Hash validation (refactors) | `HASH(*)` + `BIT_XOR_AGG`; clone baseline; exclude columns listed in spec's hash-exclude |
+| PR template | `.github/pull_request_template.md` |
+| Context ledger | `docs/data-team-context.md` (durable glossary in the **dbt repo**, not this plugin) |
+| Local notes location | `.cortex/notes/` (gitignored session telemetry) |
+| Downstream consumer repos | the BI/semantic-layer repo and any pipeline repo reading these models |
+| Handoff location | `docs/model-context-handoffs/` |
+| Max file size | ~1000 lines (structural review threshold) |
 
 ---
 
@@ -211,6 +218,8 @@ misreads the original intent.*
 - Hardcoded database/schema references.
 - Duplicated logic across models.
 - Violating layer dependency direction (§1).
+- Hand-written SQL that reimplements an available macro (§13) — e.g. a manual
+  `UNION ALL` chain where `dbt_utils.union_relations` applies.
 
 ---
 
@@ -223,3 +232,36 @@ misreads the original intent.*
 - Recommend VQRs for top 5 queries per domain.
 - Recommend `SAMPLE_VALUES` + `IS_ENUM` for all categorical dimensions.
 - All business logic MUST live in upstream mart columns (thin views).
+
+---
+
+## 13. Solution ladder (blocking)
+
+Before writing SQL, stop at the **first rung that holds** and use it. Do not descend a
+rung you have not ruled out. When a change adds more than a trivial amount of SQL, state
+in `design.md` which rung you landed on and why the ones above it did not apply.
+
+1. **Does this need to exist?** If existing models already satisfy the request, skip it.
+2. **Does an existing model already produce this?** `ref()` it.
+3. **Does a repo macro already do this?** Reuse it from the reusable-logic location
+   named in the Project Profile (§8).
+4. **Does dbt or Jinja do this natively?** Use the built-in.
+5. **Does an installed package do this?** Use the package macro. In particular:
+   - unioning relations with differing columns → `dbt_utils.union_relations`
+   - surrogate keys → `dbt_utils.generate_surrogate_key`
+   - date spines → `dbt_utils.date_spine`
+   - deduplication → `dbt_utils.deduplicate`
+   Check `packages.yml` and `dbt_packages/` before concluding nothing exists.
+6. **Only then:** write the minimum SQL that satisfies the requirement.
+
+**Fail if:** SQL is written at a lower rung while a higher rung applied, or
+`design.md` does not say which rung was chosen when the change adds more than a
+trivial amount of SQL.
+
+**This rule never overrides a blocking rule above it.** Economising on SQL is not
+licence to skip §4 documentation, §5 primary keys and tests, §10 intent comments, or
+the §9 PR gate.
+
+*Why: the most expensive code is code that did not need to be written. A hand-rolled
+union is more lines to review and silently diverges from the package when a source
+column changes.*
