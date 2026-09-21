@@ -138,6 +138,68 @@ check('ENFORCE=off disables both gates', () => {
   assert.strictEqual(r.status, 0, r.stderr);
 });
 
+check('refuse model SQL when Discover row is missing', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'nodis-'));
+  writeState(cwd, '21-09-26-bug', [
+    '| Specify+Implement | complete | spec-author delegated, test-author delegated | approved | sha:aaa |',
+  ]);
+  const r = run(
+    cwd,
+    writeEvent({ cwd, file_path: path.join(cwd, 'dbt/models/stg.sql') }),
+  );
+  assert.strictEqual(r.status, 2, r.stderr);
+  assert.match(r.stderr, /\(missing\)/);
+});
+
+check('refuse model SQL when Discover is complete but not delegated', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'nodel-'));
+  writeState(cwd, '21-09-26-bug', [
+    '| Discover | complete | discovery | approved | — |',
+  ]);
+  const r = run(
+    cwd,
+    writeEvent({ cwd, file_path: path.join(cwd, 'dbt/models/stg.sql') }),
+  );
+  assert.strictEqual(r.status, 2, r.stderr);
+});
+
+check('refuse push if spec-author is missing from Specify+Implement', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'nospec-'));
+  writeState(cwd, '21-09-26-bug', [
+    '| Discover | complete | discovery delegated | approved | sha:aaa |',
+    '| Specify+Implement | complete | test-author delegated | approved | sha:bbb |',
+    '| Ship | pending | ci-interpreter | — | — |',
+  ]);
+  const r = run(cwd, writeEvent({ cwd, tool: 'bash', command: 'git push origin HEAD' }));
+  assert.strictEqual(r.status, 2, r.stderr);
+  assert.match(r.stderr, /spec-author/);
+});
+
+check('refuse bash redirect that writes a model SQL file before Discover', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'redir-'));
+  writeState(cwd, '21-09-26-bug', [
+    '| Discover | in-progress | discovery | — | — |',
+  ]);
+  const r = run(
+    cwd,
+    writeEvent({
+      cwd,
+      tool: 'bash',
+      command: 'cat > dbt/models/staging/stg_orders.sql <<\'EOF\'\nselect 1\nEOF',
+    }),
+  );
+  assert.strictEqual(r.status, 2, `expected exit 2, got ${r.status}: ${r.stderr}`);
+});
+
+check('allow unrelated bash commands', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'ls-'));
+  writeState(cwd, '21-09-26-bug', [
+    '| Discover | in-progress | discovery | — | — |',
+  ]);
+  const r = run(cwd, writeEvent({ cwd, tool: 'bash', command: 'ls dbt/models' }));
+  assert.strictEqual(r.status, 0, r.stderr);
+});
+
 if (failed) {
   console.error(`\n${failed} failed`);
   process.exit(1);

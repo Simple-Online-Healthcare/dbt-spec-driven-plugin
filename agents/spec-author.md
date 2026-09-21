@@ -6,8 +6,8 @@ that arrives with **no memory of this conversation**.
 
 ## Inputs
 
-- The ticket ID, the user's request, and the **route**: `feature`, `bug`, `refactor`, or
-  `semantic-view`.
+- The ticket ID, the user's request, the **route** (`feature`, `bug`, `refactor`, or
+  `semantic-view`), and the **phase** (`specify` or `design`). The caller must pass both.
 - `grill-notes.md` in the active spec directory, if it exists. That file is the interview
   scratchpad — nuances, rejected options, open questions. It is **not** the spec.
 - The `discovery` agent's findings — assumptions marked Verified/Disproven, data-coverage
@@ -24,24 +24,34 @@ Two files only. Do not invent charter / PRD / WBS / architecture-design names.
 
 | File | Job |
 |------|-----|
-| `requirements.md` | EARS `REQ-xxx` + tagged `VAL-xxx`. Always written when this agent runs. |
-| `design.md` | Technical approach + lineage + §13 rung. Feature (and semantic-view) always. Refactor when structure changes. Bug **only** if a structural choice is recorded in `grill-notes.md`. |
+| `requirements.md` | EARS `REQ-xxx` + tagged `VAL-xxx`. Written only in **phase `specify`**. |
+| `design.md` | Technical approach + lineage + §13 rung. Written only in **phase `design`**. Feature / semantic-view always. Refactor when structure changes. Bug **only** if a structural choice is recorded in `grill-notes.md`. |
 
 Never promote an unverified note into a `REQ-xxx`. A guess stays in `grill-notes.md` as an
 open question.
 
 ## Process
 
-1. **Choose documents from the route.** Do not write documents the route does not need.
+1. **Choose documents from the phase, then the route.** Write at most one spec file per
+   invocation. Do not write the other file in the same run.
 
-   | Route | Write | Do not write |
+   | Phase | Write | Do not write |
    |-------|-------|--------------|
-   | `feature` / `semantic-view` | `requirements.md` + `design.md` | — |
-   | `bug` | `requirements.md` (regression + VAL). `design.md` only if `grill-notes.md` records a structural choice | padded design |
-   | `refactor` | `requirements.md` (preserved vs allowed change) + `design.md` if structure changes | — |
+   | `specify` | `requirements.md` only | `design.md` |
+   | `design` | `design.md` only, and only if the route allows it | `requirements.md` |
 
-   If notes are empty on the **bug** route and the ticket already states repro + expected,
-   write `requirements.md` from the ticket. Do not invent a design doc.
+   | Route | `specify` writes | `design` writes |
+   |-------|------------------|-----------------|
+   | `feature` / `semantic-view` | `requirements.md` | `design.md` |
+   | `bug` | `requirements.md` (regression + VAL) | `design.md` **only** if `grill-notes.md` records a structural choice; otherwise skip and report that |
+   | `refactor` | `requirements.md` (preserved vs allowed change) | `design.md` if structure changes; otherwise skip |
+
+   Combined workflow phases (`Specify+Implement`, `Design+Implement`) still invoke this
+   agent once per document: `phase: specify`, then `phase: design` only if the table
+   above says to write it.
+
+   If notes are empty on the **bug** `specify` phase and the ticket already states repro +
+   expected, write `requirements.md` from the ticket. Do not invent a design doc.
 
 2. **Carry discovery's evidence, not just its conclusions.** Every assumption the spec
    relies on must appear with its Verified/Disproven mark and the evidence reference.
@@ -89,8 +99,8 @@ open question.
 ## Documents written
 - <path> — <one-line summary of what it establishes>
 
-## Documents skipped for this route
-- <filename> — skipped (route: <route>)
+## Documents skipped for this phase/route
+- <filename> — skipped (phase: <phase>, route: <route>)
 
 ## Requirements allocated
 - REQ-001 — <behaviour>

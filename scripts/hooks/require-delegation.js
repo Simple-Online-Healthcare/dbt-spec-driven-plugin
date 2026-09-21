@@ -30,6 +30,15 @@ const SPEC_ROOTS = ['dbt/specs', 'specs'];
 const WRITE_TOOLS = /^(write|edit|multi_edit|multiedit)$/i;
 const BASH_TOOLS = /^(bash|shell|terminal)$/i;
 const SHIP_COMMAND = /\bgit\s+push\b|\bgh\s+pr\s+create\b/;
+const MODEL_REDIRECT = /(?:^|[;&|]\s*|>>?)\s*(?:['"]?)((?:[\w./-]+\/)?models\/[\w./-]+\.sql)\b/i;
+const REQUIRED_BY_PHASE = [
+  { match: /specify\+implement|design\+implement/i, agents: ['spec-author', 'test-author'] },
+  { match: /discover/i, agents: ['discovery'] },
+  { match: /specify|design/i, agents: ['spec-author'] },
+  { match: /implement/i, agents: ['test-author'] },
+  { match: /validate/i, agents: ['output-validator'] },
+  { match: /review/i, agents: ['peer-reviewer'] },
+];
 
 function allow() {
   process.exit(0);
@@ -116,6 +125,40 @@ function isModelPath(rel) {
   return /(^|\/)models\//.test(rel) && /\.sql$/i.test(rel);
 }
 
+function extractModelWrite(command) {
+  const match = String(command || '').match(MODEL_REDIRECT);
+  return match ? match[1].replace(/\\/g, '/') : null;
+}
+
+function cellNames(cell) {
+  return String(cell || '')
+    .toLowerCase()
+    .split(/[,;/]|and/)
+    .map((part) => part.replace(/\bdelegated\b/g, '').trim())
+    .filter((part) => part && !namesNoAgent(part));
+}
+
+function requiredAgents(phase) {
+  const rule = REQUIRED_BY_PHASE.find((r) => r.match.test(phase));
+  return rule ? rule.agents : [];
+}
+
+function missingRequired(rows) {
+  const missing = [];
+  for (const row of rows) {
+    const needed = requiredAgents(row.phase);
+    if (!needed.length) continue;
+    const named = cellNames(row.agent);
+    for (const agent of needed) {
+      const present = named.some((name) => name.includes(agent));
+      if (!present || !isDelegated(row.agent)) {
+        missing.push({ phase: row.phase, agent, cell: row.agent });
+      }
+    }
+  }
+  return missing;
+}
+
 function main() {
   if (/^(off|0|false)$/i.test(process.env.DBT_SPEC_DRIVEN_ENFORCE || '')) allow();
 
@@ -145,8 +188,14 @@ function main() {
     gate = { kind: 'model-write', target: rel };
   } else {
     const command = String(toolInput.command || '');
-    if (!SHIP_COMMAND.test(command)) allow();
-    gate = { kind: 'ship', target: command.trim().slice(0, 120) };
+    const redirected = extractModelWrite(command);
+    if (redirected) {
+      gate = { kind: 'model-write', target: redirected };
+    } else if (SHIP_COMMAND.test(command)) {
+      gate = { kind: 'ship', target: command.trim().slice(0, 120) };
+    } else {
+      allow();
+    }
   }
 
   // A repo with no spec roots at all is not running this workflow.
@@ -196,11 +245,15 @@ function main() {
 
   if (gate.kind === 'model-write') {
     const discover = rows.find((r) => /discover/i.test(r.phase));
-    if (discover && !isDelegated(discover.agent) && !/complete/i.test(discover.status)) {
+    const discoverOk =
+      discover && isDelegated(discover.agent) && /^complete$/i.test(discover.status);
+    if (!discoverOk) {
+      const status = discover ? discover.status : '(missing)';
+      const agent = discover ? discover.agent : '(missing)';
       block(
         `BLOCKED: Discover phase not delegated.\n\n` +
-          `${stateFile} shows Discover as status='${discover.status}', ` +
-          `sub-agent='${discover.agent}'. Writing ${gate.target} now would implement ` +
+          `${stateFile} shows Discover as status='${status}', ` +
+          `sub-agent='${agent}'. Writing ${gate.target} now would implement ` +
           `against unverified assumptions — the documented failure mode this gate exists ` +
           `to prevent (see references/field-feedback.md).\n\n` +
           `Delegate to the 'discovery' sub-agent via the Task tool, record its findings, ` +
@@ -217,8 +270,9 @@ function main() {
 
   const incomplete = priorRows.filter((r) => isIncomplete(r.status));
   const undelegated = priorRows.filter((r) => !namesNoAgent(r.agent) && !isDelegated(r.agent));
+  const missing = missingRequired(priorRows);
 
-  if (incomplete.length || undelegated.length) {
+  if (incomplete.length || undelegated.length || missing.length) {
     const lines = [`BLOCKED: workflow incomplete — cannot ship.`, ``, `State file: ${stateFile}`, ``];
     if (incomplete.length) {
       lines.push(`Phases not complete:`);
@@ -228,6 +282,13 @@ function main() {
     if (undelegated.length) {
       lines.push(`Sub-agents named but never delegated:`);
       for (const r of undelegated) lines.push(`  - ${r.phase} → expected '${r.agent}' to show 'delegated'`);
+      lines.push(``);
+    }
+    if (missing.length) {
+      lines.push(`Required sub-agents missing or not delegated:`);
+      for (const m of missing) {
+        lines.push(`  - ${m.phase} → expected '${m.agent}' (found '${m.cell}')`);
+      }
       lines.push(``);
     }
     lines.push(

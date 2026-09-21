@@ -19,10 +19,14 @@ Look for debt in these places. `<specs>` and `<models>` are the **specs location
   marked `blocked`.
 - `<models>/**/*_issues.md` review items that remain unimplemented.
 - This plugin's `skills/spec-driven/references/field-feedback.md` entries whose plugin
-  actions imply future hardening. This file lives in the plugin, not the dbt repo — skip
-  this source silently if the plugin directory is not reachable from the working tree.
+  actions imply future hardening. This file lives in the plugin, not the dbt repo.
+  If the plugin directory cannot be reached, report
+  `field-feedback.md unavailable (plugin directory not reachable)` instead of
+  skipping the source silently.
 - Explicit `spec-debt:` comments or Markdown notes anywhere outside `.git`, build output,
-  and dependency directories.
+  dependency directories, and this plugin's own instruction files (`skills/**/SKILL.md`,
+  `agents/*.md`, `references/*.md`). Do not report the literal `spec-debt:` text that
+  appears in those instructions.
 
 ## Output
 

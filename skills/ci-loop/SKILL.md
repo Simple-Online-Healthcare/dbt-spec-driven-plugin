@@ -28,7 +28,10 @@ the same loop structure.
    `gh pr view --json number,url,headRefName,baseRefName`.
 2. Inspect all attached checks:
    `gh pr checks --json name,bucket,state,workflow,link`.
-3. If checks are pending, watch with `gh pr checks --watch --fail-fast`.
+3. If checks are pending, poll with a bound, not an unbounded watch:
+   `gh pr checks --watch --fail-fast --interval 10` for at most **10 minutes**.
+   If they are still pending when that deadline is hit, stop and return `PENDING`
+   with the current check links. Do not leave `gh pr checks --watch` running.
 4. If checks fail, diagnose one actionable failure at a time:
    - For GitHub Actions, inspect failed logs with `gh run view <run-id> --log-failed`.
    - For external checks, open/report the check link and extract the failing command,
@@ -36,7 +39,9 @@ the same loop structure.
 5. Classify each failure as `code/test`, `data`, `infra/transient`, or `unknown`.
 6. Apply the smallest safe fix for `code/test` failures and rerun the local focused check
    before pushing when practical.
-7. Push the fix, re-list the checks, and repeat.
+7. Commit the focused fix (or tell the user to commit it) and confirm
+   `git status --short` is clean for those files. Then push, re-list the checks,
+   and repeat. Do not push uncommitted work.
 8. Stop when checks are green, blocked by non-code/data/infra failure, or require user
    decision.
 

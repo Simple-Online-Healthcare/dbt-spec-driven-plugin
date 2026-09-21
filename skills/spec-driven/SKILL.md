@@ -167,8 +167,9 @@ they become specs.
 
 ### Phase: Specify
 
-**Delegate to the `spec-author` sub-agent** (route: `feature`). Pass it the ticket, the
-discovery findings, and `grill-notes.md`. Do not write `requirements.md` inline.
+**Delegate to the `spec-author` sub-agent** (route: `feature`, phase: `specify`). Pass it
+the ticket, the discovery findings, and `grill-notes.md`. Do not write
+`requirements.md` inline.
 
 It must produce EARS `REQ-xxx` plus tagged `VAL-xxx` (Objective / Subjective, mapped to a
 `REQ-id`). Apply the task-type default: features are mixed; bugs/refactors usually have
@@ -192,9 +193,9 @@ summaries, and models impacted.
 
 ### Phase: Design
 
-**Delegate to the `spec-author` sub-agent** (route: `feature`). It writes `design.md`:
-files to change, trade-offs, lineage, and the `AGENTS.md` §13 rung. Do not write it
-inline.
+**Delegate to the `spec-author` sub-agent** (route: `feature`, phase: `design`). It writes
+`design.md` only: files to change, trade-offs, lineage, and the `AGENTS.md` §13 rung.
+Do not write it inline. Do not rewrite `requirements.md` in this call.
 
 **Output:** `specs/<feature-name>/design.md`
 
@@ -274,9 +275,9 @@ Proceed to **Review**.
 
 (Discovery has already produced the root cause with evidence.)
 
-1. **Delegate to the `spec-author` sub-agent** (route: `bug`). It writes a short
-   `requirements.md` (root cause, EARS fix, regression guard). It must **not** invent
-   `design.md` unless `grill-notes.md` records a structural choice.
+1. **Delegate to the `spec-author` sub-agent** (route: `bug`, phase: `specify`). It writes
+   a short `requirements.md` (root cause, EARS fix, regression guard). Invoke it again
+   with phase: `design` only if `grill-notes.md` records a structural choice.
 2. Implement the fix; add/adjust tests via **`test-author`**.
 3. Verify the regression guard holds and the change satisfies `AGENTS.md`.
 
@@ -293,10 +294,15 @@ correct value + regression guard — so this is typically self-validatable).
 
 ---
 
+## Refactor Workflow
+
+### Phase: Design + Implement
+
 (Discovery has already documented current behavior.)
 
-1. **Delegate to the `spec-author` sub-agent** (route: `refactor`). It writes
-   `requirements.md` (preserved vs allowed change) and `design.md` if structure changes.
+1. **Delegate to the `spec-author` sub-agent** (route: `refactor`, phase: `specify`).
+   It writes `requirements.md` (preserved vs allowed change). Invoke it again with
+   phase: `design` only if structure changes.
 2. Implement. Tests via **`test-author`**.
 3. Run before/after comparisons on the defined metrics; confirm `AGENTS.md` compliance.
    Hash-validate when any VAL says output must be identical.
@@ -311,10 +317,6 @@ correct value + regression guard — so this is typically self-validatable).
 
 Proceed to **Validate Output** (refactors have ground truth — outputs must be identical
 before/after — so this is typically self-validatable).
-**Output:** Refactored code + comparison results.
-
-Proceed to **Validate Output** (refactors have ground truth — outputs must be identical
-before/after — so this is typically self-validatable).
 
 ---
 
@@ -325,6 +327,14 @@ Runs before shipping. Also the entry point for a **standalone review** request.
 1. Delegate to the **`peer-reviewer`** sub-agent on the changed models in the current
    branch. It returns structured Issues (High/Medium/Low) + Suggestions. It reads the
    `output-validator`'s Validation Report for data-delta context rather than recomputing it.
+2. Walk High/Medium issues with the user one at a time, offering a specific fix for each
+   and implementing on approval. The user may decline any of them (not recommended for
+   High, but allowed).
+3. Log **every unimplemented item regardless of severity** — including any High/Medium
+   issues the user chose to skip — plus unimplemented Suggestions, to
+   `dbt/models/<folder>/<model_name>_issues.md` (append if it exists). Record each item's
+   severity so a skipped High is visible as such.
+
 **Output:** Review summary + outstanding-issues file.
 
 ### TRANSITION: Review → Ship
@@ -334,14 +344,6 @@ Runs before shipping. Also the entry point for a **standalone review** request.
 - [ ] Unimplemented items logged to `_issues.md`
 - [ ] Evidence sha recorded
 - [ ] Gate recorded
-
-Proceed to **Ship**.).
-3. Log **every unimplemented item regardless of severity** — including any High/Medium
-   issues the user chose to skip — plus unimplemented Suggestions, to
-   `dbt/models/<folder>/<model_name>_issues.md` (append if it exists). Record each item's
-   severity so a skipped High is visible as such.
-
-**Output:** Review summary + outstanding-issues file.
 
 Proceed to **Ship**.
 
@@ -474,8 +476,8 @@ never received.
 - `sha:7c0e3d91` (output-validator sub-agent)
 - `sha:b4a82c5f` (peer-reviewer sub-agent)
 
-**For phases without sub-agent delegation** (e.g. Specify in interactive mode where the
-orchestrator writes the spec itself): record `—` (same as Sub-agent column).
+**For phases without sub-agent delegation** (e.g. Standalone Docs, where no
+sub-agent is named): record `—` (same as Sub-agent column).
 
 **Verification:**
 - The `SubagentStop` hook checks that the Evidence cell is non-empty for any phase row
