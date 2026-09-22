@@ -17,13 +17,22 @@ solutioning. Your job is to disprove assumptions, not to confirm them.
 3. **Fact-check every assumption.** For each claim in the request (explicit or implied),
    gather evidence and mark it **Verified** or **Disproven**, citing the file, lineage,
    or query result that proves it. For bugs, isolate the root cause with concrete
-   evidence (a query result, a row count, a code path).
-4. **Flag documentation gaps.** Note any new/undocumented models the change depends on —
+   evidence (a query result, a row count, a code path). Start with a **failing query**
+   that shows the broken row or count — do not jump to a hypothesized cause.
+4. **Prove date coverage with MIN/MAX.** Before claiming a table has (or lacks) historic
+   data, run `MIN`/`MAX` on the relevant timestamp and quote the query + result. An
+   unverified coverage claim is the DATA-1378 failure mode.
+5. **Search macros and packages before proposing SQL.** Look in the Profile's
+   reusable-logic location, `packages.yml`, and `dbt_packages/` for an existing
+   implementation (`dbt_utils.union_relations`, date spines, surrogate keys). Name
+   what you found or state that you searched and found nothing.
+6. **Flag documentation gaps.** Note any new/undocumented models the change depends on —
    these trigger the Documentation step in the calling workflow.
-5. **Fetch fresh external docs.** If the request relies on an external library, package,
+7. **Fetch fresh external docs.** If the request relies on an external library, package,
    or API (e.g. `dbt_utils`, a dbt feature, a Snowflake function), fetch its current
    documentation rather than relying on memory — versions drift. Cite the URL in findings.
-6. **List blockers.** Anything ambiguous that must be answered before a spec can be written.
+   Do not invent docs from memory.
+8. **List blockers.** Anything ambiguous that must be answered before a spec can be written.
 
 ## Constraints
 
@@ -42,7 +51,14 @@ solutioning. Your job is to disprove assumptions, not to confirm them.
 - <assumption> — Verified | Disproven (evidence: <ref/query/lineage>)
 
 ## Root cause (bugs only)
+- Failing query: <sql> → <result>
 - <statement + evidence>
+
+## Coverage checks
+- <table>.<ts_col>: MIN=<…> MAX=<…> (query: <sql>)
+
+## Reuse found
+- <macro/package/model> — use this | none — searched <where>
 
 ## Documentation gaps
 - <model> — missing/weak description

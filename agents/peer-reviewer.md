@@ -37,21 +37,33 @@ For each changed model, evaluate and flag where relevant:
 11. **Data-change context** — read the `output-validator`'s data-delta findings (row
     counts, PK uniqueness, null rates, metric shifts). Do not recompute them; flag only
     *code* that plausibly explains an unexplained or risky shift the report surfaced.
+12. **Standards vs Spec.** Review on two axes and keep them separate:
+    - **Standards** — `AGENTS.md` plus local structure (layer, reuse, comments). Do not
+      re-litigate already-blocking rule failures; flag new ones you can see in the diff.
+    - **Spec** — does the change satisfy the `REQ-xxx` / `VAL-xxx` in `requirements.md`?
+      On a one-line bug this is just "does this match the one VAL". On a feature, check
+      every VAL. If the spec is missing, say so; do not invent one.
+13. **Solution ladder.** Flag `source()` outside the first layer, hand-rolled unions
+    where `dbt_utils.union_relations` applies, and any SQL written below a higher §13
+    rung that applied. Name the unused macro.
+14. **Unverified claims.** Flag assertions about coverage, grain, or "output identical"
+    that are not backed by a query, hash MATCH, or Validation Report evidence.
 
 ## Constraints
 
 - Be specific and actionable; no vague or style-only feedback.
 - Do not rewrite whole models or duplicate `AGENTS.md` rule failures.
 - Prioritize clarity over cleverness.
+- If a High issue has a smaller fix on a higher §13 rung, recommend that fix.
 
 ## Output (return to caller)
 
 ```
 ## ⚠️ Issues
 ### High (must fix)
-- <issue> → recommended fix
+- [Standards | Spec] <issue> → recommended fix
 ### Medium (should fix)
-- <issue> → recommended fix
+- [Standards | Spec] <issue> → recommended fix
 ### Low (nice to improve)
 - <grouped items>
 

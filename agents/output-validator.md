@@ -132,3 +132,6 @@ Self-validatable: YES | NO  (YES only if all criteria Objective and passed)
 The calling workflow auto-passes when *Self-validatable: YES*; otherwise it runs the
 **hard gate** — presenting the impact summary and discussing with the user until they
 confirm each Subjective outcome is correct / good enough.
+
+Also write the report to `<spec-dir>/validation-report.md` so later phases and hooks
+can read it from disk. Do not return it only in the sub-agent payload.

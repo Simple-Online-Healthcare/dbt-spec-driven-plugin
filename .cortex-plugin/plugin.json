@@ -1,7 +1,7 @@
 {
   "name": "dbt-spec-driven",
-  "version": "0.2.0",
-  "description": "Spec-driven dbt development workflow. One workflow skill (spec-driven) backed by mandatory standards in AGENTS.md and context-isolated sub-agents for discovery, test authoring, output validation, peer review, and CI interpretation. Includes a CI failure responder for automated bug-fix via dbt Cloud webhooks. Built for Cortex; portable to other agent tools via a thin manifest/hooks adapter.",
+  "version": "0.5.0",
+  "description": "Spec-driven dbt development workflow. One workflow skill (spec-driven) backed by mandatory standards in AGENTS.md and context-isolated sub-agents for discovery, spec authoring, test authoring, output validation, peer review, and CI interpretation. Includes a CI failure responder for automated bug-fix via dbt Cloud webhooks. Cortex-only.",
   "skills": [
     {
       "name": "spec-driven",
@@ -12,6 +12,41 @@
       "name": "ci-failure-responder",
       "path": "skills/ci-failure-responder/SKILL.md",
       "description": "Responds to dbt Cloud CI job failures. Creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. Use when: a dbt Cloud job fails and you want to auto-fix, or invoke manually with a run URL."
+    },
+    {
+      "name": "spec-review",
+      "path": "skills/spec-review/SKILL.md",
+      "description": "Focused entry point for reviewing current dbt changes through the canonical spec-driven Review phase."
+    },
+    {
+      "name": "spec-debt",
+      "path": "skills/spec-debt/SKILL.md",
+      "description": "Report unresolved spec-driven workflow debt: skipped gates, stale issue ledgers, field-feedback follow-ups."
+    },
+    {
+      "name": "verify-this",
+      "path": "skills/verify-this/SKILL.md",
+      "description": "Verify a falsifiable claim with fresh local evidence on non-dbt surfaces."
+    },
+    {
+      "name": "ci-loop",
+      "path": "skills/ci-loop/SKILL.md",
+      "description": "Monitor PR checks and iterate on fixable CI failures until green or blocked."
+    },
+    {
+      "name": "quality-audit",
+      "path": "skills/quality-audit/SKILL.md",
+      "description": "Strict maintainability and structure audit. For dbt models, run peer-reviewer first."
+    },
+    {
+      "name": "pr-ergonomics",
+      "path": "skills/pr-ergonomics/SKILL.md",
+      "description": "Prepare or clean up pull requests after canonical workflow gates are satisfied."
+    },
+    {
+      "name": "work-summary",
+      "path": "skills/work-summary/SKILL.md",
+      "description": "Summarize completed work from git history and spec artifacts."
     }
   ]
 }
