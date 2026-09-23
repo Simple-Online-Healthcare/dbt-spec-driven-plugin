@@ -50,6 +50,7 @@
 | Downstream consumer repos | the BI/semantic-layer repo and any pipeline repo reading these models |
 | Handoff location | `docs/model-context-handoffs/` |
 | Max file size | ~1000 lines (structural review threshold) |
+| ADR location | `architecture/decisions/` — index and governance rules in its README |
 
 ---
 
@@ -265,3 +266,19 @@ the §9 PR gate.
 *Why: the most expensive code is code that did not need to be written. A hand-rolled
 union is more lines to review and silently diverges from the package when a source
 column changes.*
+
+---
+
+## 14. Architecture Decision Records (non-blocking, discovery mandatory)
+
+- ADRs live in the location named in the Project Profile.
+- Agents and contributors MUST consult the ADR index during discovery for any
+  work that touches a domain with existing ADRs.
+- Design decisions that contradict an accepted ADR MUST either:
+  - Justify the deviation in the spec's `design.md`, OR
+  - Propose a new ADR that supersedes the existing one.
+- ADRs are immutable once Accepted. To change a decision, write a new ADR
+  with status `Accepted` and update the old one's status to
+  `Superseded by ADR-NNN`.
+- Feature-scoped decisions stay in the spec's `design.md`. Only decisions that
+  generalise across the project belong in the ADR registry.
