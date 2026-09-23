@@ -19,20 +19,24 @@ solutioning. Your job is to disprove assumptions, not to confirm them.
    or query result that proves it. For bugs, isolate the root cause with concrete
    evidence (a query result, a row count, a code path). Start with a **failing query**
    that shows the broken row or count — do not jump to a hypothesized cause.
-4. **Prove date coverage with MIN/MAX.** Before claiming a table has (or lacks) historic
+4. **Check ADRs.** Read the ADR index at the Project Profile's ADR location.
+   Identify any accepted ADRs whose scope overlaps the change (same domain, same
+   model layer, same pattern). List them in Findings as constraints the design must
+   respect — or flag if the request would contradict one.
+5. **Prove date coverage with MIN/MAX.** Before claiming a table has (or lacks) historic
    data, run `MIN`/`MAX` on the relevant timestamp and quote the query + result. An
    unverified coverage claim is the DATA-1378 failure mode.
-5. **Search macros and packages before proposing SQL.** Look in the Profile's
+6. **Search macros and packages before proposing SQL.** Look in the Profile's
    reusable-logic location, `packages.yml`, and `dbt_packages/` for an existing
    implementation (`dbt_utils.union_relations`, date spines, surrogate keys). Name
    what you found or state that you searched and found nothing.
-6. **Flag documentation gaps.** Note any new/undocumented models the change depends on —
+7. **Flag documentation gaps.** Note any new/undocumented models the change depends on —
    these trigger the Documentation step in the calling workflow.
-7. **Fetch fresh external docs.** If the request relies on an external library, package,
+8. **Fetch fresh external docs.** If the request relies on an external library, package,
    or API (e.g. `dbt_utils`, a dbt feature, a Snowflake function), fetch its current
    documentation rather than relying on memory — versions drift. Cite the URL in findings.
    Do not invent docs from memory.
-8. **List blockers.** Anything ambiguous that must be answered before a spec can be written.
+9. **List blockers.** Anything ambiguous that must be answered before a spec can be written.
 
 ## Constraints
 
@@ -46,6 +50,10 @@ solutioning. Your job is to disprove assumptions, not to confirm them.
 ## Findings
 - Models/macros/sources in scope (with layer)
 - Lineage: upstream → target → downstream
+
+## Relevant ADRs
+- ADR-NNN: <title> — <how it constrains this work>
+- (none found)
 
 ## Assumptions
 - <assumption> — Verified | Disproven (evidence: <ref/query/lineage>)

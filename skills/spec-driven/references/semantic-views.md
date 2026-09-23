@@ -7,12 +7,14 @@ should reference this document when working with `materialization: semantic_view
 
 ## Architecture (ADRs)
 
-- **ADR-001 — Thin views:** All business logic lives in dbt mart columns. The semantic
-  view only references existing columns — no computed expressions.
-- **ADR-002 — Placement:** Semantic views deploy to `DWH.SEMANTIC_VIEWS` via `+database: dwh`,
-  `+schema: semantic_views` in `dbt_project.yml`. Models live in `models/semantic_views/`.
-- **ADR-003 — Looker migration:** Maps Looker measures → metrics, Looker dimensions →
-  dimensions, Looker explores → semantic views.
+The semantic view architecture is governed by ADRs in the Project Profile's ADR
+location. Read the ADR index for the current accepted decisions. Key ADRs:
+
+- **ADR-001** — Thin views (business logic in mart columns)
+- **ADR-002** — Placement (schema/database config)
+- **ADR-003** — Looker migration pattern
+
+Consult the full ADR text for constraints when authoring or modifying semantic views.
 
 ---
 

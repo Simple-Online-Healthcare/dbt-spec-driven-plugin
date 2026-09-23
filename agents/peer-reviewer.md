@@ -29,12 +29,16 @@ For each changed model, evaluate and flag where relevant:
    SQL? Flag missing comments **and** content-free ones ("-- case statement").
 6. **Layer fit & single responsibility** — logic lives in the right layer (layers per the
    AGENTS.md Project Profile).
-7. **Reusability** — repeated logic that should be a macro/intermediate model.
-8. **Performance** — unnecessary or risky joins, repeated heavy calcs (flag, don't over-optimize).
-9. **Testing adequacy (qualitative)** — do tests reflect real business risk? Could an
+7. **ADR compliance** — read the ADR index (Project Profile's ADR location). For each
+   accepted ADR, verify the changed models do not contradict it. If a model violates an
+   ADR without a superseding ADR or explicit design justification, flag as **High
+   (must fix)**.
+8. **Reusability** — repeated logic that should be a macro/intermediate model.
+9. **Performance** — unnecessary or risky joins, repeated heavy calcs (flag, don't over-optimize).
+10. **Testing adequacy (qualitative)** — do tests reflect real business risk? Could an
    `event_time` config be added?
-10. **Analyst usability (marts)** — business-friendly columns, clear grain.
-11. **Data-change context** — read the `output-validator`'s data-delta findings (row
+11. **Analyst usability (marts)** — business-friendly columns, clear grain.
+12. **Data-change context** — read the `output-validator`'s data-delta findings (row
     counts, PK uniqueness, null rates, metric shifts). Do not recompute them; flag only
     *code* that plausibly explains an unexplained or risky shift the report surfaced.
 12. **Standards vs Spec.** Review on two axes and keep them separate:

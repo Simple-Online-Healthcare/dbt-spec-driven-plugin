@@ -194,7 +194,10 @@ summaries, and models impacted.
 ### Phase: Design
 
 **Delegate to the `spec-author` sub-agent** (route: `feature`, phase: `design`). It writes
-`design.md` only: files to change, trade-offs, lineage, and the `AGENTS.md` §13 rung.
+`design.md` only: files to change, trade-offs, lineage, the `AGENTS.md` §13 rung, and the
+**ADR check** — it must review the relevant ADRs surfaced by discovery (§14 in `AGENTS.md`),
+comply with them or explicitly propose a new ADR to supersede, and cite ADR numbers where
+the design follows an existing decision. If no ADRs are relevant, state "No ADRs apply."
 Do not write it inline. Do not rewrite `requirements.md` in this call.
 
 **Output:** `specs/<feature-name>/design.md`
@@ -302,7 +305,8 @@ correct value + regression guard — so this is typically self-validatable).
 
 1. **Delegate to the `spec-author` sub-agent** (route: `refactor`, phase: `specify`).
    It writes `requirements.md` (preserved vs allowed change). Invoke it again with
-   phase: `design` only if structure changes.
+   phase: `design` only if structure changes — in which case it must include an ADR
+   check per the Design phase guidance above.
 2. Implement. Tests via **`test-author`**.
 3. Run before/after comparisons on the defined metrics; confirm `AGENTS.md` compliance.
    Hash-validate when any VAL says output must be identical.
