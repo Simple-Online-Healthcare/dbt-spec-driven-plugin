@@ -31,6 +31,8 @@ abstraction boundaries, file size, and accidental complexity.
    - unnecessary wrappers or pass-through abstractions
    - duplicated helpers instead of canonical utilities
    - feature logic leaking into the wrong module/layer
+   - tautological tests — tests whose outcome is fixed by the implementation rather than
+     the requirement (definition: `AGENTS.md` §5a); these apply to non-dbt code too
 4. For AI-generated slop, prefer behavior-preserving cleanup: remove gratuitous comments,
    abnormal defensive code, unnecessary casts, and nested flow that can be direct.
 5. Return actionable findings ordered by severity. If no meaningful issues exist, say so.

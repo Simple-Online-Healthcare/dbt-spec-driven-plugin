@@ -200,6 +200,64 @@ check('allow unrelated bash commands', () => {
   assert.strictEqual(r.status, 0, r.stderr);
 });
 
+function gitRepo(prefix, files) {
+  const cwd = fs.mkdtempSync(path.join(tmp, prefix));
+  const g = (...args) => spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
+  g('init', '-q', '-b', 'master');
+  g('config', 'user.email', 't@t');
+  g('config', 'user.name', 't');
+  fs.writeFileSync(path.join(cwd, 'README.md'), 'base\n');
+  g('add', '.');
+  g('commit', '-q', '-m', 'base');
+  g('checkout', '-q', '-b', 'feature');
+  for (const f of files) {
+    fs.mkdirSync(path.dirname(path.join(cwd, f)), { recursive: true });
+    fs.writeFileSync(path.join(cwd, f), 'x\n');
+  }
+  return { cwd, g };
+}
+
+const INCOMPLETE = ['| Discover | in-progress | discovery | — | — |'];
+
+check('allow push when branch touches no dbt models', () => {
+  const { cwd, g } = gitRepo('docs-', ['agents/test-author.md', '.github/ci-checks/x.py']);
+  g('add', '.');
+  g('commit', '-q', '-m', 'docs');
+  writeState(cwd, '21-09-26-bug', INCOMPLETE);
+  const r = run(cwd, writeEvent({ cwd, tool: 'bash', command: 'git push -u origin HEAD' }));
+  assert.strictEqual(r.status, 0, r.stderr);
+});
+
+check('refuse push when a committed change touches a dbt model', () => {
+  const { cwd, g } = gitRepo('model-', ['dbt/models/staging/stg_orders.sql']);
+  g('add', '.');
+  g('commit', '-q', '-m', 'model');
+  writeState(cwd, '21-09-26-bug', INCOMPLETE);
+  const r = run(cwd, writeEvent({ cwd, tool: 'bash', command: 'git push -u origin HEAD' }));
+  assert.strictEqual(r.status, 2, r.stderr);
+});
+
+check('refuse chained commit+push when an uncommitted change touches a dbt model', () => {
+  const { cwd } = gitRepo('chain-', ['dbt/models/staging/stg_orders.sql']);
+  writeState(cwd, '21-09-26-bug', INCOMPLETE);
+  const r = run(cwd, writeEvent({
+    cwd, tool: 'bash', command: 'git add -A && git commit -m x && git push',
+  }));
+  assert.strictEqual(r.status, 2, r.stderr);
+});
+
+check('evaluate the repo named by a leading cd, not the session cwd', () => {
+  const session = fs.mkdtempSync(path.join(tmp, 'session-'));
+  writeState(session, '21-09-26-bug', INCOMPLETE);
+  const { cwd: other, g } = gitRepo('other-', ['AGENTS.md']);
+  g('add', '.');
+  g('commit', '-q', '-m', 'docs');
+  const r = run(session, writeEvent({
+    cwd: session, tool: 'bash', command: `cd ${other} && git push -u origin HEAD`,
+  }));
+  assert.strictEqual(r.status, 0, r.stderr);
+});
+
 if (failed) {
   console.error(`\n${failed} failed`);
   process.exit(1);

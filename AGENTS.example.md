@@ -124,8 +124,34 @@ structurally valid (the query executes without error).
 **Fail if:** an intermediate/mart model has no primary key, the primary key is not
 tested with both `unique` and `not_null`, or a source lacks freshness configuration.
 
-*Recommended (not blocking): relationships tests, accepted_values tests, business-logic
-assertions, and `event_time` config where applicable.*
+### 5a. Test strategy (blocking)
+
+The full standard lives in the project's testing ADR (dbt-pipelines: ADR-007). Summary:
+
+- **Test type.** Column contracts (PK, nulls, FK, enums) → YAML generic tests.
+  Transformation logic → dbt `unit_tests:` with fixtures. Cross-row/cross-model
+  invariants on real data → singular test at
+  `tests/models/<layer>/<domain>/assert_<model>__<invariant>.sql` with a `-- REQ-NNN`
+  header.
+- **No tautological tests.** A test must be derived from the requirement or an upstream
+  contract, not from the implementation. `not_null` on a `coalesce`d column,
+  `accepted_values` copied from the model's own `case`, unit-test expectations generated
+  by running the model — all rejected.
+- **Structural tests** (PK unique/not_null, freshness) are mandatory but never count as
+  coverage of a business requirement.
+- **Falsification.** Every new or changed non-structural test must be seen to fail once
+  against a broken input (unit fixture, model mutation, or injected violating row) before
+  it is accepted. The method is recorded.
+- **Coverage floor.** Every intermediate/mart model with non-trivial logic has at least
+  one non-structural test. Every requirement maps to a test or is listed as a Gap with a
+  reason.
+- **Severity.** `error` by default; `warn` requires `meta.warn_reason`.
+
+**Fail if:** a test is tautological, a new non-structural test has no recorded
+falsification, a logic-bearing model has only structural tests, or a requirement is
+neither tested nor listed as a Gap.
+
+*Recommended (not blocking): `event_time` config where applicable.*
 
 ---
 

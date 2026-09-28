@@ -35,8 +35,28 @@ For each changed model, evaluate and flag where relevant:
    (must fix)**.
 8. **Reusability** — repeated logic that should be a macro/intermediate model.
 9. **Performance** — unnecessary or risky joins, repeated heavy calcs (flag, don't over-optimize).
-10. **Testing adequacy (qualitative)** — do tests reflect real business risk? Could an
-   `event_time` config be added?
+10. **Test quality** (standard: `AGENTS.md` §5a and the testing ADR — dbt-pipelines
+    ADR-007). This is the one place tautology and falsification are enforced; CI cannot
+    check them. For every test added or changed in the diff:
+    - **Tautological → High.** Flag tests whose outcome is fixed by the implementation:
+      `not_null` on a `coalesce`d/literal column; `unique` on a self-generated key (other
+      than the structural PK test); `accepted_values` copied from the model's own `case`;
+      singular tests that re-derive the model's logic; unit-test `expect` rows that match
+      the model's output but not the requirement text; `where:` filters that exclude the
+      violating rows. Fix = rewrite from the requirement, not delete.
+    - **No falsification → High.** Every non-structural test must appear in test-author's
+      Falsification log with a method and "failed as expected". **Re-run at least one
+      claimed falsification yourself** (apply the mutation or injected row, confirm it
+      fails, revert). If it passes, the test is tautological → High.
+    - **Requirement uncovered → High.** A `REQ-xxx` with no test and no Gap entry. Only
+      structural tests covering a logic-bearing model also counts.
+    - **Wrong test type → Medium.** Logic tested only by generic tests where a unit test
+      is the right tool; singular tests for simple column contracts.
+    - **Unjustified `warn` → Medium.** `severity: warn` without `meta.warn_reason`.
+    - **Layout/naming → Low.** Singular test not at
+      `tests/models/<layer>/<domain>/assert_<model>__<invariant>.sql`, or missing the
+      `-- REQ-NNN` header.
+    - Also: could an `event_time` config be added? (Suggestion.)
 11. **Analyst usability (marts)** — business-friendly columns, clear grain.
 12. **Data-change context** — read the `output-validator`'s data-delta findings (row
     counts, PK uniqueness, null rates, metric shifts). Do not recompute them; flag only

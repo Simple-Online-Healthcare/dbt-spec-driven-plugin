@@ -216,7 +216,8 @@ Do not write it inline. Do not rewrite `requirements.md` in this call.
 1. Work through the design task by task.
 2. Reference requirement IDs in comments where non-obvious logic implements a requirement.
 3. Author or update tests via the **`test-author`** sub-agent. It must name the seam
-   first, then write the test.
+   first, derive expectations from the requirement (not the SQL), reject tautological
+   tests, and falsify every non-structural test (`AGENTS.md` §5a / testing ADR).
 4. Build and run tests as you go.
 5. Validate every change against **`AGENTS.md`** — fix any blocking violation before
    proceeding. (AGENTS.md is the rule source; there is no separate standards skill.)
@@ -226,6 +227,9 @@ Do not write it inline. Do not rewrite `requirements.md` in this call.
 ### TRANSITION: Implement → Validate Output
 
 - [ ] `test-author` was delegated via the Task tool
+- [ ] test-author report has a Falsification log entry (failed as expected) for every
+      non-structural test, and every `REQ-xxx` is mapped to a test or listed under Gaps
+- [ ] All falsification mutations reverted (`git diff` shows only intended model changes)
 - [ ] Models build locally and tests pass
 - [ ] Evidence sha recorded
 - [ ] No `AGENTS.md` blocking violations
@@ -238,7 +242,7 @@ Proceed to **Validate Output**.
 
 Runs **after Implement, before Review** — for every path (feature / bug / refactor). This
 is the data equivalent of an end-to-end test: *did the change produce the intended data
-outcome?* dbt tests (from `test-author`) are unit-level; this validates the actual output.
+outcome?* dbt tests (from `test-author`) assert rules; this validates the actual output.
 
 1. Delegate to the **`output-validator`** sub-agent with the changed models and the spec's
    Validation Criteria (`VAL-xxx`). It builds the models, checks schema vs design, diffs
@@ -631,7 +635,8 @@ cannot see a sub-agent that was never started. The mechanical lock is `PreToolUs
 (`scripts/hooks/require-delegation.js`):
 
 - **Write-gate:** refuse writing `models/**/*.sql` until Discover is complete **and**
-  `discovery` shows `delegated`. Macros, tests, analyses, and YAML are not gated.
+  `discovery` shows `delegated`. Macros, tests, analyses, and YAML are not write-gated
+  (test *quality* is still enforced by `test-author`, `peer-reviewer` and CI — §5a).
 - **Ship-gate:** refuse `git push` / `gh pr create` if any prior phase is incomplete or
   any named sub-agent is not `delegated`.
 - Pick `workflow-state.md` by last write time, not directory name.

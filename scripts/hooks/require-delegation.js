@@ -11,7 +11,9 @@
  *   2. SHIP GATE         — blocks `git push` / `gh pr create` while any phase is
  *      incomplete or any required sub-agent was never delegated. This is what
  *      closes the model-write gate's escape hatch: even if a change reached the
- *      working tree without a workflow, it cannot become a PR.
+ *      working tree without a workflow, it cannot become a PR. Only applies when
+ *      the branch (commits since its base, plus uncommitted changes) touches a
+ *      dbt model; docs/CI/macro/YAML-only pushes are not gated.
  *
  * Contract (Cortex Code hooks): stdin receives the event JSON; exit 0 allows the
  * call, exit 2 blocks it and stderr becomes the reason shown to the agent.
@@ -25,11 +27,14 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const SPEC_ROOTS = ['dbt/specs', 'specs'];
 const WRITE_TOOLS = /^(write|edit|multi_edit|multiedit)$/i;
 const BASH_TOOLS = /^(bash|shell|terminal)$/i;
 const SHIP_COMMAND = /\bgit\s+push\b|\bgh\s+pr\s+create\b/;
+const LEADING_CD = /^\s*cd\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/;
+const BASE_REFS = ['origin/HEAD', 'origin/master', 'origin/main', 'master', 'main'];
 const MODEL_REDIRECT = /(?:^|[;&|]\s*|>>?)\s*(?:['"]?)((?:[\w./-]+\/)?models\/[\w./-]+\.sql)\b/i;
 const REQUIRED_BY_PHASE = [
   { match: /specify\+implement|design\+implement/i, agents: ['spec-author', 'test-author'] },
@@ -125,6 +130,41 @@ function isModelPath(rel) {
   return /(^|\/)models\//.test(rel) && /\.sql$/i.test(rel);
 }
 
+/** A command like `cd /repo && git push` targets /repo, not the session cwd. */
+function resolveTargetDir(cwd, command) {
+  const m = String(command || '').match(LEADING_CD);
+  if (!m) return cwd;
+  const dir = (m[1] || m[2] || m[3]).replace(/^~(?=\/|$)/, process.env.HOME || '~');
+  return path.resolve(cwd, dir);
+}
+
+function git(dir, args) {
+  const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+  return r.status === 0 ? r.stdout : null;
+}
+
+/** Files the ship would publish: commits since the branch base plus staged,
+ *  unstaged and untracked changes (a commit may be chained before the push).
+ *  Returns null if it cannot be determined. */
+function changedFiles(dir) {
+  if (git(dir, ['rev-parse', '--is-inside-work-tree']) === null) return null;
+  const files = new Set();
+  const add = (out) => (out || '').split('\n').filter(Boolean).forEach((f) => files.add(f));
+  for (const ref of BASE_REFS) {
+    const base = git(dir, ['merge-base', 'HEAD', ref]);
+    if (base) {
+      const committed = git(dir, ['diff', '--name-only', `${base.trim()}...HEAD`]);
+      if (committed === null) return null;
+      add(committed);
+      break;
+    }
+  }
+  add(git(dir, ['diff', '--name-only', 'HEAD']));
+  add(git(dir, ['diff', '--name-only', '--cached']));
+  add(git(dir, ['ls-files', '--others', '--exclude-standard']));
+  return [...files];
+}
+
 function extractModelWrite(command) {
   const match = String(command || '').match(MODEL_REDIRECT);
   return match ? match[1].replace(/\\/g, '/') : null;
@@ -182,6 +222,7 @@ function main() {
 
   // Only the two gated situations proceed past here.
   let gate = null;
+  let root = cwd;
   if (isWrite) {
     const rel = relativize(cwd, toolInput.file_path || toolInput.path || '');
     if (!isModelPath(rel)) allow();
@@ -192,6 +233,10 @@ function main() {
     if (redirected) {
       gate = { kind: 'model-write', target: redirected };
     } else if (SHIP_COMMAND.test(command)) {
+      root = resolveTargetDir(cwd, command);
+      const files = changedFiles(root);
+      // Unknown change set: keep gating. Known and model-free: nothing to enforce.
+      if (files !== null && !files.some(isModelPath)) allow();
       gate = { kind: 'ship', target: command.trim().slice(0, 120) };
     } else {
       allow();
@@ -201,14 +246,14 @@ function main() {
   // A repo with no spec roots at all is not running this workflow.
   const hasSpecRoot = SPEC_ROOTS.some((r) => {
     try {
-      return fs.statSync(path.join(cwd, r)).isDirectory();
+      return fs.statSync(path.join(root, r)).isDirectory();
     } catch {
       return false;
     }
   });
   if (!hasSpecRoot) allow();
 
-  const stateFile = findStateFile(cwd);
+  const stateFile = findStateFile(root);
 
   if (!stateFile) {
     if (gate.kind === 'model-write') {
