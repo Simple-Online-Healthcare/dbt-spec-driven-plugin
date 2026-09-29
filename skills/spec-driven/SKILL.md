@@ -447,57 +447,47 @@ workflow session. It is gitignored and never committed. Its audience is the agen
 |--------|----------|---------|
 | **Phase** | Always | Phase name (e.g. `Discover`, `Specify`, `Implement`, `Validate Output`, `Review`, `Ship`) |
 | **Status** | Always | One of: `pending`, `in-progress`, `complete`, `blocked` |
-| **Sub-agent** | Always | After the agent runs: `<name> delegated` (e.g. `discovery delegated`). Before it runs: the expected name. `—` if the phase has no agent. The blocking hook treats the word `delegated` as the lock. |
+| **Sub-agent** | Always | After the agent runs: `<name> delegated` (e.g. `discovery delegated`). Before it runs: the expected name. `—` if the phase has no agent. The blocking hook checks `delegated` against the hook ledger — the word alone is not enough. |
 | **Gate** | Always | Gate outcome: `approved` / `auto-approved (scheduled)` / `—` (not yet reached) / `blocked` |
 | **Evidence** | Always | Proof that the sub-agent was actually invoked and its output processed. See rules below. |
 
 ### Evidence Column Rules
 
-The Evidence column exists to prevent the orchestrating agent from skipping sub-agent
-delegations. An agent in a hurry cannot fabricate valid evidence without actually
-performing the work. Evidence is recorded inline in `workflow-state.md` only — no
-additional files are created for this purpose.
+The Evidence column proves a sub-agent actually ran and its output was processed. It is
+recorded inline in `workflow-state.md` only — no additional files are created for this
+purpose.
 
 **For phases without sub-agent delegation:** record `—` (same as Sub-agent column).
 Specify and Design **do** delegate to `spec-author` — do not write those docs inline.
 
-**What to record:**
+**Launching a sub-agent:** start the Task tool `description` with the agent name, e.g.
+`discovery: statsig shipped metric`. That is how the evidence hook knows which agent ran.
 
-The first 8 characters of the SHA-256 hash of the sub-agent's full returned text,
-prefixed with `sha:` (e.g. `sha:a3f7c201`). This proves the orchestrator received and
-processed the sub-agent's response — you cannot produce a valid hash for output you
-never received.
+**What to record:** the `sha:` value the hook gives you. When a sub-agent returns, the
+`record-evidence` hook hashes its **full returned text** and replies
+`Evidence recorded by hook: <agent> output → sha:xxxxxxxx`. Copy exactly that value.
+**Never compute a hash yourself** — only values the hook observed are accepted. You may
+add a short description, and cite a file only if it exists (e.g. `requirements.md`).
 
-**Computation:** Immediately on receiving the sub-agent's return text, compute:
-`echo -n "<full-return-text>" | sha256sum | cut -c1-8`
+**Verification (mechanical, in `require-delegation.js`):** every `delegated` row must
+cite a `sha:` the hook recorded for that agent in this spec, newer than all evidence above
+it; every cited file must exist. See Enforcement Hooks.
 
-**Examples:**
-- `sha:e9b12f4a` (discovery sub-agent)
-- `sha:7c0e3d91` (output-validator sub-agent)
-- `sha:b4a82c5f` (peer-reviewer sub-agent)
-
-**For phases without sub-agent delegation** (e.g. Standalone Docs, where no
-sub-agent is named): record `—` (same as Sub-agent column).
-
-**Verification:**
-- The `SubagentStop` hook checks that the Evidence cell is non-empty for any phase row
-  where the Sub-agent column names a delegate. If the Evidence cell is empty or `—` but
-  a sub-agent is listed, the gate cannot pass.
-- The hash itself is not validated automatically (there is no second observer), but it
-  creates an auditable trail — a reviewer can re-run the sub-agent and compare hashes
-  if trust is in question.
+**Re-entering a phase** ("Needs changes", a Retry Protocol loop): **append** a new row
+for that phase — never edit the old one. Appending re-opens that phase and every phase
+after it; the gates then check only the current cycle.
 
 ### Example
 
 ```markdown
 | Phase | Status | Sub-agent | Gate | Evidence |
 |-------|--------|-----------|------|----------|
-| Discover | complete | discovery delegated | approved | discovery-findings.md (34 lines) · sha:e9b12f4a |
+| Discover | complete | discovery delegated | approved | 34-line findings · sha:e9b12f4a |
 | Specify | complete | spec-author delegated | approved | requirements.md · sha:c1a90e22 |
 | Design | complete | spec-author delegated | approved | design.md · sha:91bb4d07 |
-| Implement | complete | test-author delegated | approved | test-author-report.md (12 lines) · sha:4f19c7e2 |
-| Validate Output | complete | output-validator delegated | approved | validation-report.md (22 lines) · sha:7c0e3d91 |
-| Review | in-progress | peer-reviewer | — | peer-review-issues.md (15 lines) · sha:b4a82c5f |
+| Implement | complete | test-author delegated | approved | 4 tests added · sha:4f19c7e2 |
+| Validate Output | complete | output-validator delegated | approved | self-validated, 0 row delta · sha:7c0e3d91 |
+| Review | in-progress | peer-reviewer | — | — |
 | Ship | pending | ci-interpreter | — | — |
 ```
 
@@ -508,10 +498,12 @@ sub-agent is named): record `—` (same as Sub-agent column).
 A gate is a phase-boundary checkpoint. Its behavior depends on the execution mode.
 
 ### Interactive mode (default):
-- Present the artifact (findings, spec, or design) clearly.
+- Present the artifact itself (findings, spec, or design) — not a summary of it. If the
+  user has not seen it, they cannot approve it.
 - Use `ask_user_question` with options: `"Approve and proceed"` / `"Needs changes"`.
 - The question MUST name what phase is completing and what phase starts next.
-- Do NOT proceed past a gate without the user selecting "Approve and proceed".
+- Do NOT proceed past a gate without the user selecting "Approve and proceed". The hook
+  records the answer; one approval covers one gate, and only after that phase's evidence.
 
 ### Scheduled mode:
 - Do NOT call `ask_user_question`.
@@ -537,7 +529,7 @@ invoked:
 | Mode | Trigger | Gate Behavior | Failure Behavior |
 |------|---------|---------------|------------------|
 | **interactive** (default) | User invokes skill directly | `ask_user_question` — hard stop until human approves | Present to user |
-| **scheduled** | Invoked with `mode: scheduled` in the prompt, or from an automation/cron context | Self-checkpoint — auto-approve when artifacts are complete | Retry up to 3× then hard-stop |
+| **scheduled** | `mode: scheduled` in the session's opening prompt (automations include it) | Self-checkpoint — auto-approve when artifacts are complete | Retry up to 3× then hard-stop |
 
 ### Scheduled Mode Rules
 
@@ -549,8 +541,9 @@ checklists remain mandatory.
 
 Instead of calling `ask_user_question`, the agent:
 1. Verifies ALL items in the phase's transition checklist are satisfied (artifact exists,
-   sub-agent was delegated, workflow-state.md is updated, Evidence column is populated
-   with a valid artifact path + hash).
+   sub-agent was delegated, workflow-state.md is updated, Evidence column holds the
+   hook-issued `sha:`). The hook only accepts `auto-approved (scheduled)` in a session
+   whose prompt contained `mode: scheduled`.
 2. If all satisfied → logs `auto-approved (scheduled)` in the Gate column of
    `workflow-state.md` and proceeds.
 3. If any item is NOT satisfied (including a missing or empty Evidence cell for a phase
@@ -622,19 +615,59 @@ The Retry Log section is appended to `workflow-state.md`:
 
 ## Enforcement Hooks
 
-Advisory hooks (`SessionStart`, `SubagentStop`, `PreCompact`, `Stop`) only remind. They
-cannot see a sub-agent that was never started. The mechanical lock is `PreToolUse`
-(`scripts/hooks/require-delegation.js`):
+`workflow-state.md` is the agent's **claim**. The hooks check it against a **ledger**
+(`.cortex/spec-driven/ledger.jsonl`, local runtime state — gitignore `.cortex/`) that
+only the `record-evidence` hook writes, from facts the harness supplies:
 
-- **Write-gate:** refuse writing `models/**/*.sql` until Discover is complete **and**
-  `discovery` shows `delegated`. Macros, tests, analyses, and YAML are not gated.
-- **Ship-gate:** refuse `git push` / `gh pr create` if any prior phase is incomplete or
-  any named sub-agent is not `delegated`.
+| Ledger fact | Recorded from | Checks |
+|---|---|---|
+| Sub-agent ran, `sha` of its full returned text | `PostToolUse` on `task` / `agent_output` | `delegated` rows and their `sha:` |
+| The user's actual answer | `PostToolUse` on `ask_user_question` | Gate `approved` |
+| Session started with `mode: scheduled` | `UserPromptSubmit` | Gate `auto-approved (scheduled)` |
+| User accepted pre-ledger evidence | `UserPromptSubmit` | legacy rows (below) |
+
+The lock is `PreToolUse` (`scripts/hooks/require-delegation.js`). It checks the
+**current cycle** (see Re-entering a phase):
+
+- **Write-gate** — refuse writing `models/**/*.sql` (macros, tests, analyses, and YAML
+  are never gated) unless:
+  - Discover is complete and `discovery` is `delegated`;
+  - every phase above the Implement row is complete **and** approved;
+  - phases are in order: none started (by status, by `delegated`, or because the ledger
+    saw its sub-agent run) before every phase above it was approved;
+  - every claim verifies (below);
+  - no new `ref()` points to a downstream layer — layer order and prefixes are read from
+    the AGENTS.md Project Profile (§1). No exception mechanism exists.
+- **Ship-gate** — refuse `git push` / `gh pr create` if any prior phase is incomplete,
+  any named sub-agent is not `delegated`, a required sub-agent is missing, or any claim
+  fails to verify.
+- **Claim verification** — a `complete` row needs Gate `approved` or
+  `auto-approved (scheduled)`; a `delegated` row must cite a hook-recorded `sha:` for that
+  agent, newer than all evidence above it; cited files must exist; each `approved` gate
+  needs its own "Approve and proceed" answer given **after** that phase's evidence;
+  `auto-approved (scheduled)` is accepted only in a session started with `mode: scheduled`.
+- **Ledger guard** — refuse any agent write to `.cortex/spec-driven/`.
 - Pick `workflow-state.md` by last write time, not directory name.
-- Fail-open on missing/unparseable state. Escape: `DBT_SPEC_DRIVEN_ENFORCE=off`.
-- Do not validate Evidence `sha:` in the hook — the `delegated` check is the lock.
+- Fail-open on missing/unparseable state or profile. Escape: `DBT_SPEC_DRIVEN_ENFORCE=off`
+  (set by the human in the environment — the agent cannot set it for the hook).
 
-See `references/field-feedback.md` (DATA-1378).
+**Workflows started before the ledger existed** fail verification on rows the ledger never
+saw. The **user** (not the agent) types `spec-driven: accept legacy evidence for <spec-dir>`.
+That covers only rows already complete and approved at that moment, pinned to their exact
+Evidence text; every later or edited row is checked normally.
+
+**What the hooks cannot verify** (mitigated, not gated):
+- **The quality of an approval.** The hook knows the user chose "Approve and proceed", not
+  that they read the artifact. Present the artifact itself in the question, never a summary
+  of it.
+- **Facts outside the repo** — e.g. a Snowflake tag or grant actually existing. A local
+  hook has no Snowflake session. Any spec requirement that is a Snowflake-side fact must be
+  a Validation Criterion that `output-validator` checks by query, pasting the query and its
+  result into its return (so the output's hash covers the proof).
+- **Deliberate circumvention** — an agent obfuscating shell writes to the ledger, or
+  editing the installed hook scripts. The gates stop slips and shortcuts, not an adversary.
+
+See `references/field-feedback.md` (DATA-1378, DATA-1820).
 
 ---
 

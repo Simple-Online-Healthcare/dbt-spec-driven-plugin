@@ -1,3 +1,8 @@
+---
+name: ci-failure-responder
+description: "Responds to dbt Cloud CI job failures. Creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. Use when: a dbt Cloud job fails and you want to auto-fix, or invoke manually with a run URL."
+---
+
 # CI Failure Responder
 
 ## Purpose

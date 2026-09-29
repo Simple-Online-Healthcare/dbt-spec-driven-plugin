@@ -17,7 +17,7 @@ This plugin is **Cortex-only**. There is no adapter layer for other IDEs.
 | `skills/ci-failure-responder/` | Responds to dbt Cloud job failures: creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. |
 | `skills/{spec-review,spec-debt,verify-this,ci-loop,quality-audit,pr-ergonomics,work-summary}/` | Optional side doors. Never injected into a one-line bug. |
 | `automations/ci-failure/` | Cloud automation config, prompt, runner, and setup guide for the CI failure responder. See [`set_up.md`](./automations/ci-failure/set_up.md). |
-| `hooks/hooks.json` | Advisory reminders **and** a blocking `PreToolUse` lock (`scripts/hooks/require-delegation.js`). Dual bash + PowerShell for the advisory hooks. |
+| `hooks/hooks.json` | Advisory reminders, a blocking `PreToolUse` lock (`scripts/hooks/require-delegation.js`), and a non-blocking evidence observer (`scripts/hooks/record-evidence.js`) whose ledger the lock checks claims against. Dual bash + PowerShell for the advisory hooks. |
 
 ### Design principle
 
@@ -46,7 +46,9 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 ## Requirements
 
 - Cortex Code / Cortex Desktop. Cortex-only — no Cursor/other-IDE adapter.
-- `node` on PATH (the blocking hook is a Node script).
+- `node` on PATH (the blocking hook and evidence observer are Node scripts).
+- Gitignore `.cortex/` in your dbt repo — the evidence ledger (`.cortex/spec-driven/`)
+  is local runtime state.
 - `git` and the GitHub CLI (`gh`, authenticated) for the Ship phase.
 - `jq` on PATH for the hooks **on macOS/Linux** (the POSIX hook variants use it; the
   Windows/PowerShell variants use built-in cmdlets and need no `jq`).

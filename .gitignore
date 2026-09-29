@@ -3,3 +3,4 @@
 workflow-state.md
 .snowflake/
 automations/config.env
+.cortex/spec-driven/
