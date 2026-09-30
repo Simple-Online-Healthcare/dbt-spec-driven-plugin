@@ -406,6 +406,13 @@ function main() {
   const isBash = BASH_TOOLS.test(toolName);
   if (!isWrite && !isBash) allow();
 
+  // This plugin repository also has a specs/ directory. Scope enforcement to
+  // actual dbt projects so its own release workflow is not mistaken for dbt work.
+  const isDbtProject = ['dbt_project.yml', 'dbt/dbt_project.yml'].some((file) =>
+    fs.existsSync(path.join(cwd, file))
+  );
+  if (!isDbtProject) allow();
+
   // Ledger guard: the ledger is only trustworthy if the agent cannot write it.
   const writePath = isWrite ? String(toolInput.file_path || toolInput.path || '') : '';
   const command = isBash ? String(toolInput.command || '') : '';

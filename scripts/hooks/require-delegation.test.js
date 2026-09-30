@@ -105,6 +105,7 @@ const IMPLEMENTING = [
 function writeState(root, name, rows) {
   const dir = path.join(root, 'dbt/specs', name);
   fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(root, 'dbt/dbt_project.yml'), 'name: test_project\n');
   const header = [
     '| Phase | Status | Sub-agent | Gate | Evidence |',
     '|-------|--------|-----------|------|----------|',
@@ -279,6 +280,13 @@ check('allow unrelated bash commands', () => {
   assert.strictEqual(r.status, 0, r.stderr);
 });
 
+check('do not gate a non-dbt repository that happens to have specs/', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'not-dbt-'));
+  fs.mkdirSync(path.join(cwd, 'specs/example'), { recursive: true });
+  const r = run(cwd, writeEvent({ cwd, tool: 'bash', command: 'git push origin HEAD' }));
+  assert.strictEqual(r.status, 0, r.stderr);
+});
+
 // --- Gaps found in the DATA-1820 incident -----------------------------------
 
 check('refuse fabricated Discover row: no recorded run, no recorded approval', () => {
@@ -437,6 +445,7 @@ check('background sub-agent: sha is issued from the completed agent_output', () 
 
 check('refuse the agent writing the evidence ledger (write tool and bash)', () => {
   const cwd = fs.mkdtempSync(path.join(tmp, 'ledger-'));
+  writeState(cwd, '28-09-26-ledger-guard', []);
   const w = run(cwd, writeEvent({ cwd, file_path: path.join(cwd, '.cortex/spec-driven/ledger.jsonl') }));
   assert.strictEqual(w.status, 2, w.stderr);
   const b = run(cwd, writeEvent({ cwd, tool: 'bash', command: `echo '{}' >> .cortex/spec-driven/ledger.jsonl` }));
@@ -459,6 +468,66 @@ check('refuse the agent writing the evidence ledger (write tool and bash)', () =
 check('observer never blocks, even on garbage input', () => {
   const cwd = fs.mkdtempSync(path.join(tmp, 'garbage-'));
   observe(cwd, 'not json');
+});
+
+// Response shape captured from a real Cortex Desktop session: tool_response is a
+// STRING holding JSON '[{"kind":"text","value":"..."}]' — not an array, and not
+// { content: [{ text }] }. Captured 30-09-26 via a probe on a live task call.
+const desktopShape = (text) => JSON.stringify([{ kind: 'text', value: text }]);
+
+check('desktop shape: the parsed-array variant is also handled', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'desk-array-'));
+  const out = observe(cwd, {
+    hook_event_name: 'PostToolUse',
+    tool_name: 'task',
+    tool_input: { description: 'discovery: x', prompt: 'brief' },
+    tool_response: [{ kind: 'text', value: 'payload capture' }],
+  });
+  assert.match(out, new RegExp(`sha:${require('./ledger').sha8('payload capture')}`));
+});
+
+check('desktop shape: a real approval is recorded as the answer, not the JSON wrapper', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'desk-approve-'));
+  writeState(cwd, '30-09-26-x', []);
+  const d = observeSubagent(cwd, 'discovery');
+  observe(cwd, {
+    hook_event_name: 'PostToolUse',
+    tool_name: 'ask_user_question',
+    tool_input: { questions: [] },
+    tool_response: desktopShape(`User has answered your questions:\n"${'Re-confirming the Discover gate '.repeat(8)}?" = "Approve and proceed"`),
+  });
+  writeState(cwd, '30-09-26-x', [`| Discover | complete | discovery delegated | approved | sha:${d} |`]);
+  const r = run(cwd, writeEvent({ cwd, file_path: path.join(cwd, 'dbt/models/foo.sql') }));
+  assert.strictEqual(r.status, 0, r.stderr);
+});
+
+check('desktop shape: sub-agent sha is the hash of its text, not the wrapper', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'desk-sha-'));
+  const out = observe(cwd, {
+    hook_event_name: 'PostToolUse',
+    tool_name: 'task',
+    tool_input: { description: 'discovery: x', prompt: 'brief' },
+    tool_response: desktopShape('hello from the e2e check'),
+  });
+  assert.match(out, new RegExp(`sha:${require('./ledger').sha8('hello from the e2e check')}`));
+});
+
+check('desktop shape: background sub-agent is recorded when agent_output completes', () => {
+  const cwd = fs.mkdtempSync(path.join(tmp, 'desk-bg-'));
+  const id = 'd56de305-2510-46c1-b8a2-ecf2a044b20c';
+  observe(cwd, {
+    hook_event_name: 'PostToolUse',
+    tool_name: 'task',
+    tool_input: { description: 'discovery: bg', prompt: 'brief' },
+    tool_response: desktopShape(`Background agent launched successfully.\n\nagentId: ${id}\n`),
+  });
+  const out = observe(cwd, {
+    hook_event_name: 'PostToolUse',
+    tool_name: 'agent_output',
+    tool_input: { agent_id: id },
+    tool_response: desktopShape(`Agent: ${id}\nType: Explore\nStatus: completed\n=== Output\nfindings`),
+  });
+  assert.match(out, /Evidence recorded by hook: discovery output → sha:[0-9a-f]{8}/);
 });
 
 check('allow ship when every claim verifies', () => {

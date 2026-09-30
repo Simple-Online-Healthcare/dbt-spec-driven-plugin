@@ -31,11 +31,27 @@ function done(context) {
   process.exit(0);
 }
 
-/** Tool responses arrive as a string or { content: [{ type: 'text', text }] }. */
+/** Tool responses reach hooks in several shapes. Cortex Desktop sends a STRING
+ *  holding JSON: '[{"kind":"text","value":"..."}]'. Others send the parsed parts
+ *  array, { content: [{ type: 'text', text }] }, or plain text. Always reduce to
+ *  the plain text — never hash or parse the JSON wrapper. */
 function responseText(response) {
-  if (typeof response === 'string') return response;
-  if (response && Array.isArray(response.content)) {
-    return response.content.map((c) => (c && typeof c.text === 'string' ? c.text : '')).join('\n');
+  if (typeof response === 'string') {
+    const t = response.trim();
+    if (!/^[[{]/.test(t)) return response;
+    try {
+      const decoded = JSON.parse(t);
+      if (decoded && typeof decoded === 'object') return responseText(decoded);
+    } catch {
+      /* plain text that happens to start with a bracket */
+    }
+    return response;
+  }
+  const parts = Array.isArray(response) ? response : response && Array.isArray(response.content) ? response.content : null;
+  if (parts) {
+    return parts
+      .map((p) => (typeof p === 'string' ? p : p && typeof (p.text ?? p.value) === 'string' ? p.text ?? p.value : ''))
+      .join('\n');
   }
   return response == null ? '' : JSON.stringify(response);
 }
