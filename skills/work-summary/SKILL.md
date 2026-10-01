@@ -29,9 +29,9 @@ Use only the inputs that fit the request:
 2. Commit history: `git log --oneline --decorate --max-count <n>` or a user-provided
    range.
 3. Diff/stat evidence: `git diff --stat`, `git diff --cached --stat`, or a commit range.
-4. Workflow artifacts: `requirements.md`, `design.md`, `grill-notes.md`,
-   `workflow-state.md`, the Validation Report, `_issues.md`, and the Project
-   Profile's **context ledger**.
+4. Workflow artifacts: PR bodies (REQ/VAL and validation summary), `requirements.md` and
+   `design.md` where the full route wrote them, `_issues.md`, and the Project Profile's
+   **context ledger**.
 5. PR metadata or review comments only when available through an approved connector or CLI.
 
 ## Workflow

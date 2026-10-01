@@ -51,7 +51,8 @@ For each changed model, evaluate and flag where relevant:
     where `dbt_utils.union_relations` applies, and any SQL written below a higher §13
     rung that applied. Name the unused macro.
 14. **Unverified claims.** Flag assertions about coverage, grain, or "output identical"
-    that are not backed by a query, hash MATCH, or Validation Report evidence.
+    that are not backed by a query, fingerprint MATCH, or Validation Report evidence. Flag any data criterion marked
+    PASS from SQL inspection alone.
 
 ## Constraints
 

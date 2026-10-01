@@ -21,7 +21,7 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
 
 1. **Build the changed models** into the dev target so their output exists to inspect.
 2. **Schema check vs design.** Confirm expected columns, types, and grain are present;
-   flag any drift from `design.md`.
+   flag any drift from `design.md` (full route) or the plan the caller passed (light route).
 3. **Clone baseline** (refactors, or when any `VAL-xxx` specifies "output must be
    identical"):
    - For each changed model, clone the baseline relation into the dev schema:
@@ -45,7 +45,7 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
      Use `HASH(*)` when hashing all columns (no exclusions, no schema drift).
    - Compute the baseline fingerprint: same query on the cloned baseline (or baseline
      relation if clone was unavailable).
-   - **MATCH** (fingerprints equal) → record `Hash equivalence: MATCH`. The model's data
+   - **MATCH** (fingerprints equal) → record `Fingerprint: MATCH`. The model's data
      is confirmed identical. Skip audit_helper for this model.
    - **MISMATCH** (fingerprints differ) → record both fingerprints. Proceed to step 6
      (audit_helper) to diagnose the difference.
@@ -90,8 +90,12 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
 - Never auto-approve a Subjective criterion. Surface samples and stop for the user.
 - Read-only on production; build only into the dev target. (Exception: cloning a production
   relation into the dev schema in step 3, and dropping those clones in step 7.)
-- Objective findings that should become permanent regressions → hand to `test-author` to
-  codify as dbt tests (e.g. the bug's correct-output case → singular test).
+- Objective findings that should become permanent regressions → list them in the report
+  so the caller can codify them as dbt tests (e.g. the bug's correct-output case →
+  singular test).
+- If a model needed for a check hasn't been rebuilt with the change, build it. Don't mark
+  a data criterion PASS from reading the SQL alone; if you can't run it, mark it
+  NOT RUN with the reason.
 
 ## Output (return to caller) — Validation Report
 
@@ -109,7 +113,7 @@ Self-validatable: YES | NO  (YES only if all criteria Objective and passed)
 ### Column diff (refactor)
 - <model>: IDENTICAL | SCHEMA DRIFT (added: [...], removed: [...], type changes: [...])
 
-### Hash equivalence (refactor)
+### Fingerprint equivalence (refactor)
 - <model>: MATCH (fingerprint: <value>) | MISMATCH (dev: <hash>, baseline: <hash>)
 
 ### Data delta vs baseline (MISMATCH or non-refactor models only)
@@ -129,9 +133,8 @@ Self-validatable: YES | NO  (YES only if all criteria Objective and passed)
 - REQ-001 → met (VAL-001) | REQ-002 → pending sign-off (VAL-002)
 ```
 
-The calling workflow auto-passes when *Self-validatable: YES*; otherwise it runs the
-**hard gate** — presenting the impact summary and discussing with the user until they
-confirm each Subjective outcome is correct / good enough.
+The calling workflow continues when *Self-validatable: YES*; otherwise it presents the
+impact summary to the user and resolves each Subjective or failed criterion with them.
 
-Also write the report to `<spec-dir>/validation-report.md` so later phases and hooks
-can read it from disk. Do not return it only in the sub-agent payload.
+Return the report in your reply only. **Do not write it to a file** — it is working
+material, and the caller summarises it in the PR body.

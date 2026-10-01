@@ -147,8 +147,8 @@ A: That's what the Human Review gate is for. The agent cannot merge; you always 
 If it's wrong, reject with comments — or take over the branch manually.
 
 **Q: What if it gets stuck?**  
-A: After 3 attempts at the same error, it hard-stops and logs what went wrong in
-`workflow-state.md`. You pick up from there with full context of what was tried.
+A: After 3 attempts at the same error, it stops and comments on the ticket with what
+went wrong and what it tried. You pick up from there.
 
 **Q: Is AI-generated code held to a different standard?**  
 A: No. It must pass the same AGENTS.md rules, the same CI checks, the same review process.

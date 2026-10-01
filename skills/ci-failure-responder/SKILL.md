@@ -146,7 +146,7 @@ After the `spec-driven` workflow completes (or hard-stops):
 | Outcome | Action |
 |---------|--------|
 | **PR opened, CI green** | Update Jira ticket: add comment with PR link, transition to "Peer Review" |
-| **Hard stop (blocked)** | Update Jira ticket: add comment with `workflow-state.md` retry log, transition to "Up Next" for human pickup |
+| **Hard stop (blocked)** | Update Jira ticket: add comment summarising what was blocked and what was tried, transition to "Up Next" for human pickup |
 | **Ticket only (data/infra)** | No further action — ticket is in backlog for triage |
 
 Use `mcp_jira_jira_add_comment` for the outcome comment and `mcp_jira_jira_transition_issue`

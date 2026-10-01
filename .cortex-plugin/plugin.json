@@ -1,6 +1,6 @@
 {
   "name": "dbt-spec-driven",
   "version": "0.6.0",
-  "description": "Spec-driven dbt development workflow. One workflow skill (spec-driven) backed by mandatory standards in AGENTS.md and context-isolated sub-agents for discovery, spec authoring, test authoring, output validation, peer review, and CI interpretation. Includes a CI failure responder for automated bug-fix via dbt Cloud webhooks. Cortex-only.",
+  "description": "Spec-driven dbt development workflow. One workflow skill (spec-driven) with light and full routes, backed by mandatory standards in AGENTS.md and sub-agents for output validation, peer review, CI interpretation and (full route) spec authoring. Includes a CI failure responder for automated bug-fix via dbt Cloud webhooks. Cortex-only.",
   "skills": "skills"
 }

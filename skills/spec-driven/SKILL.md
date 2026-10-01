@@ -8,688 +8,269 @@ tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "Tas
 
 ## Purpose
 
-This is the single workflow skill for dbt work in this project. It enforces a gated
-flow where the problem is **discovered and fact-checked first**, requirements are
-**formally specified and approved**, code is implemented against the mandatory rules in
-`AGENTS.md`, and changes are **reviewed and shipped through CI**.
+The workflow for dbt work in this project: understand the problem and check the
+assumptions first, agree what "done" means (requirements + validation criteria), build
+against the rules in `AGENTS.md`, prove the data outcome, get an independent review, and
+ship through CI.
 
-Specs live in the **specs location** named in the AGENTS.md Project Profile
-(`dbt/specs/` in this repo), in `<dd-mm-yy>-<name>/` directories.
+> **Authority:** `AGENTS.md` at the repo root holds the mandatory, blocking rules. This
+> skill points to them rather than restating them.
 
-> **Authority:** `AGENTS.md` at the repo root holds the mandatory, blocking rules.
-> This skill never restates those rules — it points to them. Heavy, context-isolated
-> steps are delegated to sub-agents (see "Sub-agents" below).
+The process scales with the work. A change that follows a pattern already in the repo
+does not need the paperwork a new model does. Pick the route first.
 
 ---
 
 ## Routing
 
-Detect intent from the request and route to the matching entry point:
+Two decisions: **what kind of work** (sets the validation default) and **how much
+process** (light or full).
 
-| Intent | Triggers | Route |
-|--------|----------|-------|
-| New Feature | "build", "create", "add", "new feature" | Full workflow (Discover → Specify → Design → Implement → Review → Ship) |
-| Semantic View | "create semantic view", "add cortex view", "semantic layer" | Full workflow with **`semantic-view-author`** delegation during Implement |
-| Bug Fix | "fix", "bug", "broken", "incorrect" | Bug workflow (Discover → Specify+Implement → Review → Ship) |
-| Refactor | "refactor", "restructure", "clean up", "reorganize" | Refactor workflow (Discover → Design+Implement → Review → Ship) |
-| Standalone Review | "review", "code review", "peer review", "review my PR" | Jump straight to **Review** on the current branch |
-| Standalone Docs | "document", "add docs", "describe this model" | Jump straight to the **Documentation** step |
+| Intent | Triggers | Validation default |
+|--------|----------|--------------------|
+| Feature | "build", "create", "add", "new feature" | Mixed — expect some Subjective criteria |
+| Semantic view | "semantic view", "cortex view", "semantic layer" | Mixed; `semantic-view-author` writes the DDL |
+| Bug fix | "fix", "bug", "broken", "incorrect" | Objective — the correct value is known |
+| Refactor | "refactor", "restructure", "clean up" | Objective — output must be identical |
+| Standalone review | "review", "code review", "review my PR" | Jump to **Review** on the current branch |
+| Standalone docs | "document", "add docs", "describe this model" | Jump to **Documentation** |
 
-If intent is ambiguous, ask the user which applies before starting.
+### Light or full
 
-New Matt/port behaviour is **route-scoped**, not always-on. A one-line bug does **not**
-run the feature interview.
+Decide after Discover, from what you found — not from the ticket wording.
 
-| Route | Grill | spec-author | questionnaire | glossary write | §13 rung | hash-validate |
-|---|---|---|---|---|---|---|
-| Feature | Full frontier until decisions are empty | `requirements.md` + `design.md` | Yes, if someone else holds a fact | New terms only | Required in `design.md` | No (unless a VAL says identical) |
-| Semantic View | Same as Feature | `requirements.md` + `design.md` | Same as Feature | New terms only | Required in `design.md` | No (unless a VAL says identical) |
-| Bug | 1–3 questions: repro, expected row, out of scope | Combined `requirements.md`. **No `design.md` unless the fix needs a structural choice recorded in `grill-notes.md`.** | Only if the owner of the bug is not in the room | Only if a term was wrong and we corrected it | Skip unless new SQL beyond a trivial patch | Only if the VAL is "output identical" |
-| Refactor | 1–3 questions: preserved vs allowed change | `requirements.md` listing those two lists + `design.md` if structure changes | Rare | Rare | Yes if new structure | **Yes — hash path** |
-| Scheduled | No grill. Missing decision = HARD STOP | Use whatever is already in the spec | No | No | From existing design | Per VAL |
+**Full** if any of these hold:
+- A new model, or a change to an existing model's grain or primary key.
+- A new join path across domains, or a change in layer dependencies.
+- A semantic view.
+- The design touches a domain with an ADR, or would warrant a new one.
+- There are two or more reasonable designs with real trade-offs.
 
-Always-on even for a one-line bug: Discover first (failing query on the bug route),
-`test-author` at the agreed seam, `output-validator` + report on disk, write-gate /
-ship-gate, `peer-reviewer` Standards vs Spec.
+**Light** otherwise — typically a change that repeats an established in-repo pattern
+(e.g. one more metric on a model that already has several), a bug with a clear repro, or
+a behaviour-preserving refactor within one model.
 
-Never-on for a one-line bug: multi-round design interview, `questions-for-<person>.md`
-unless Discover lists an unanswered blocker owned by someone else, ADR, capability
-skills (`spec-review`, `quality-audit`, `spec-debt`, `verify-this`, `ci-loop`,
-`pr-ergonomics`, `work-summary`) — those stay optional side doors.
+| | Light | Full |
+|---|---|---|
+| Spec files committed | None. REQ/VAL go in the PR body and the ticket. | `requirements.md` + `design.md` in the spec directory |
+| `spec-author` | Not used | Writes both documents |
+| Interactive gates | One plan gate before Implement; validation gate if Subjective; ship | Discover, Spec, Design, validation if Subjective, ship |
 
----
-
-## Flight Checklist (mandatory — check before every transition)
-
-| Route | Phase order |
-|-------|-------------|
-| **Feature** | `discovery` → GATE → Specify + `spec-author` → ticket-update → GATE → Design + `spec-author` → GATE → Implement + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
-| **Semantic View** | Same as Feature, plus `semantic-view-author` during Implement |
-| **Bug Fix** | `discovery` → GATE → Specify+Implement + `spec-author` + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
-| **Refactor** | `discovery` → GATE → Design+Implement + `spec-author` + `test-author` → `output-validator` → GATE-if-subjective → `peer-reviewer` → `_issues.md` → GATE → Ship + `ci-interpreter` |
-| **Standalone Review / Docs** | That phase only |
-
-Do not skip a named sub-agent. Partial delegation is a workflow violation.
+If the work turns out bigger than it looked, move to full and say so. Don't move down
+silently.
 
 ---
 
 ## Sub-agents
 
-Delegate context-heavy steps to these sub-agents (via the Task tool). Each runs in
-isolation and returns a structured result, keeping the main thread focused:
+Use these where context isolation actually helps — independent review, and long-running
+checks that would flood the main thread:
 
-- **`discovery`** — explores the codebase/lineage and fact-checks assumptions; returns a
-  findings report. Used by the Discover phase.
-- **`spec-author`** — writes `requirements.md` and, when the route needs it, `design.md`
-  from `grill-notes.md` + discovery. Used by Specify and Design. Route-aware: a bug does
-  not get a design doc unless a structural choice is recorded.
-- **`semantic-view-author`** — writes semantic view DDL (tables, relationships, metrics,
-  dimensions, VQRs). Used during Implement when intent is "Semantic View". See
-  `references/semantic-views.md` for conventions.
-- **`test-author`** — writes dbt tests/assertions for the change. Used during Implement.
-- **`output-validator`** — validates the *data outcome* against the spec's Validation
-  Criteria (schema, data delta vs baseline, self-validate vs sign-off). Used by Validate Output.
-- **`peer-reviewer`** — qualitative review of changed models on two axes (Standards vs
-  Spec); returns structured issues. Used by the Review phase (and standalone review).
-- **`ci-interpreter`** — polls and interprets CI results. Used by the Ship phase.
+- **`output-validator`** — checks the data outcome against the `VAL-xxx` criteria and
+  the production baseline. Returns a Validation Report in its reply.
+- **`peer-reviewer`** — independent Standards-vs-Spec review of the changed models. It
+  hasn't seen your reasoning, which is the point.
+- **`ci-interpreter`** — watches PR checks to completion and classifies failures.
+- **`spec-author`** — full route only: writes `requirements.md` and `design.md`.
+- **`semantic-view-author`** — semantic view DDL during Implement.
+
+Discovery and test writing happen in the main thread. Use an `explore` sub-agent for
+discovery only if the search is genuinely broad (many domains, unfamiliar area).
 
 ---
 
-## Starting a Workflow
+## Starting a workflow
 
-Every feature/bug/refactor begins with a ticket in the Project Profile's **ticketing**
-system (example: Jira):
+Every feature/bug/refactor starts from a ticket in the Profile's **ticketing** system.
 
-1. Ask the user for the ticket ID (e.g., `DATA-123`).
-2. **Move the ticket onto the board.** If the ticket is in "Backlog", transition it to
-   "Up Next" first so it is visible on the board before the workflow begins.
-3. **Label the ticket** `on-the-loop` and **transition it to "AI Executing"** in the
-   ticketing system (Jira: add label via `jira_update_issue`, transition via
-   `jira_transition_issue`). This marks the ticket as entering the spec-driven workflow
-   and enables board filtering.
-4. Create a branch from the Profile's **base branch** (example: `master`):
-   `git checkout <base_branch> && git pull && git checkout -b <ticket-id>-<slug>`
-   - Slug: kebab-case, concise, derived from the ticket/intent. Example: `DATA-123-new-patient-orders`.
-5. Spec directory: `<specs>/<dd-mm-yy>-<feature-name>/`, where `<specs>` is the specs
-   location in the Project Profile (example: `dbt/specs/`).
-   - Example: branch created 28/05/26 → `dbt/specs/28-05-26-new-patient-orders/`.
-6. Create `workflow-state.md` from the schema below and `grill-notes.md` from the
-   template in Spec File Conventions. Do not treat `grill-notes.md` as a spec document.
-7. Proceed to the **Discover** phase. Do not write `requirements.md` before Discover
-   finishes — `spec-author` writes it after.
+1. Get the ticket ID. **Check for an existing branch or open PR for it** — a scheduled
+   run may already be on it.
+2. If the ticket is in "Backlog", move it to "Up Next" so it is on the board. Add the
+   `on-the-loop` label and move it to "AI Executing".
+3. Branch from the Profile's **base branch**:
+   `git checkout <base_branch> && git pull && git checkout -b <ticket-id>-<slug>`.
+   If the working tree is dirty, stash first and say so.
 
-(Standalone Review and Standalone Docs skip ticket/branch creation and operate on the
-current branch.)
+(Standalone review and docs skip this and work on the current branch.)
 
 ---
 
-## Phase: Discover & Fact-Check (mandatory first gate)
+## Phase: Discover
 
-**No solutioning until discovery is done.** This phase exists to kill assumptions before
-they become specs.
+Find the facts before proposing anything.
 
-1. **Grill first, then discover.** Depth follows the route table above.
-   - Feature / semantic-view: keep asking until the decision list is empty. Write
-     answers, rejected options, and open questions into `grill-notes.md`.
-   - Bug: 1–3 questions (repro, expected row, out of scope). If the ticket already
-     states those, skip extra rounds.
-   - Refactor: 1–3 questions (what must stay identical vs what may change).
-   - If a needed fact is owned by someone who is not in the room, write
-     `questions-for-<person>.md` and stop that thread. Do not invent the answer.
-2. Delegate to the **`discovery`** sub-agent with the user's request and
-   `grill-notes.md`. It must return:
-   - Relevant existing models, macros, sources, and their layers.
-   - Lineage/dependencies that the change touches (upstream and downstream).
-   - Assumptions in the request that were **verified** vs **disproven** (with evidence:
-     query results, file references, lineage).
-   - On the bug route: a **failing query** plus `MIN`/`MAX` coverage checks.
-   - Open questions that block specification.
-3. If discovery surfaces **new or undocumented** models that the change depends on,
-   trigger the **Documentation** step for those models before continuing.
-4. Present the findings summary and any open questions to the user. Append durable
-   terms to the Profile **context ledger** only when a term is resolved.
+- Read the models, macros, sources and YAML the change touches, plus their upstream and
+  downstream lineage.
+- **Read the nearest existing implementation of the same kind of change** — a sibling
+  metric, a similar fix, a prior spec in the specs location — and follow its conventions
+  (file layout, one YAML per model, existing macros, test style). Most rework comes from
+  not doing this.
+- Check the ADR index for the domain. Note whether a precedent exists — an ADR or an
+  existing implementation of the same approach. This decides the route and whether an
+  ADR is needed.
+- Test every assumption in the ticket against the code or the data. Say which were
+  confirmed and which were wrong, with the query or file that shows it.
+- Bug route: write the failing query and check data coverage (`MIN`/`MAX`) on the
+  columns involved.
+- Note anything that will shape the design — coverage gaps, grain mismatches, a value
+  living on a different entity than the ticket says. Raise these now, not at validation.
+- If a fact you need is owned by someone else, stop that thread and ask; don't invent it.
 
-**Output:** Findings report + `grill-notes.md` + resolved/open questions.
+If discovery surfaces undocumented models the change depends on, run the
+**Documentation** step for them.
 
-### TRANSITION: Discover → next phase
-
-- [ ] `discovery` was delegated via the Task tool
-- [ ] Evidence sha recorded on the Discover row
-- [ ] Open questions answered or listed as blockers
-- [ ] `grill-notes.md` exists (may be short on the bug route)
-- [ ] Gate recorded (`approved` or `auto-approved (scheduled)`)
-
-**GATE — Stop. Get explicit user approval (and answers to open questions) before specifying.**
+Then choose **light** or **full** and state why in one line.
 
 ---
 
-## New Feature Workflow
+## Phase: Specify and design
 
-### Phase: Specify
+Define "done" before writing code: EARS-style `REQ-xxx` requirements and `VAL-xxx`
+validation criteria, each `VAL` mapped to a `REQ` and marked **Objective** (checkable
+against ground truth) or **Subjective** (needs a human judgement).
 
-**Delegate to the `spec-author` sub-agent** (route: `feature`, phase: `specify`). Pass it
-the ticket, the discovery findings, and `grill-notes.md`. Do not write
-`requirements.md` inline.
+When a user has made a decision, carry it forward **in their words**. Don't widen it
+("graph only for stableID" is not "graph only for every ID type").
 
-It must produce EARS `REQ-xxx` plus tagged `VAL-xxx` (Objective / Subjective, mapped to a
-`REQ-id`). Apply the task-type default: features are mixed; bugs/refactors usually have
-ground truth. This is the TDD "define the tests, work backwards" step.
+**Light route:** write the plan in your reply — the REQ/VAL list, the files you'll
+change, the expected schema change (columns added or changed, their types, and the
+grain, even if unchanged), and any risk from Discover. Pass that plan to
+`output-validator` for its schema check. Put the same REQ/VAL list in the ticket
+description and, later, the PR body. No spec files.
 
-**Post to the ticketing system** (Project Profile; example: Jira via the `jira_update_issue`
-MCP tool): update the ticket description with the branch name, requirement IDs + one-line
-summaries, and models impacted.
+**Full route:** delegate to `spec-author` for `requirements.md`, then again for
+`design.md`. The design covers files to change, lineage, trade-offs, the `AGENTS.md`
+solution-ladder rung, and the ADR check (comply, or propose a superseding ADR). Specs
+live in the Profile's **specs location** as `<dd-mm-yy>-<name>/`. Update the ticket with
+the branch, requirement IDs and impacted models.
 
-**Output:** `specs/<feature-name>/requirements.md`
+**When to write an ADR.** ADRs record approaches; `design.md` records one change.
 
-### TRANSITION: Specify → Design
+| Situation | Route | Written |
+|---|---|---|
+| Follows an existing precedent (ADR or in-repo pattern) | Light | PR body only |
+| New structure, but nothing others will copy or rely on (e.g. a one-off report mart) | Full | `requirements.md` + `design.md` |
+| No precedent for the approach, and other models will copy it or depend on its semantics (e.g. a new identity graph, key strategy, transformation technique) | Full | Spec files + a new ADR stated in general terms |
+| Departs from an existing ADR | Full | Spec files + a superseding ADR |
 
-- [ ] `spec-author` was delegated via the Task tool (not written inline)
-- [ ] `requirements.md` exists with `REQ-xxx` / `VAL-xxx`
-- [ ] Ticket updated
-- [ ] Evidence sha recorded
-- [ ] Gate recorded
-
-**GATE — Stop and get explicit approval of the spec before designing.**
-
-### Phase: Design
-
-**Delegate to the `spec-author` sub-agent** (route: `feature`, phase: `design`). It writes
-`design.md` only: files to change, trade-offs, lineage, the `AGENTS.md` §13 rung, and the
-**ADR check** — it must review the relevant ADRs surfaced by discovery (§14 in `AGENTS.md`),
-comply with them or explicitly propose a new ADR to supersede, and cite ADR numbers where
-the design follows an existing decision. If no ADRs are relevant, state "No ADRs apply."
-Do not write it inline. Do not rewrite `requirements.md` in this call.
-
-**Output:** `specs/<feature-name>/design.md`
-
-### TRANSITION: Design → Implement
-
-- [ ] `spec-author` was delegated via the Task tool
-- [ ] `design.md` states the §13 rung
-- [ ] Evidence sha recorded
-- [ ] Gate recorded
-
-**GATE — Stop and get explicit approval of the design before implementing.**
-
-### Phase: Implement
-
-1. Work through the design task by task.
-2. Reference requirement IDs in comments where non-obvious logic implements a requirement.
-3. Author or update tests via the **`test-author`** sub-agent. It must name the seam
-   first, then write the test.
-4. Build and run tests as you go.
-5. Validate every change against **`AGENTS.md`** — fix any blocking violation before
-   proceeding. (AGENTS.md is the rule source; there is no separate standards skill.)
-
-**Output:** Working code that builds, passes tests, and satisfies `AGENTS.md`.
-
-### TRANSITION: Implement → Validate Output
-
-- [ ] `test-author` was delegated via the Task tool
-- [ ] Models build locally and tests pass
-- [ ] Evidence sha recorded
-- [ ] No `AGENTS.md` blocking violations
-
-Proceed to **Validate Output**.
+Write the ADR so it covers the general pattern, not this ticket: the next change of the
+same kind should find it in Discover and take the light route. `design.md` links to the
+ADR rather than restating it. In scheduled mode, draft the ADR as `Proposed` in the PR;
+a human accepts it.
 
 ---
 
-## Phase: Validate Output
+## Phase: Implement
 
-Runs **after Implement, before Review** — for every path (feature / bug / refactor). This
-is the data equivalent of an end-to-end test: *did the change produce the intended data
-outcome?* dbt tests (from `test-author`) are unit-level; this validates the actual output.
-
-1. Delegate to the **`output-validator`** sub-agent with the changed models and the spec's
-   Validation Criteria (`VAL-xxx`). It builds the models, checks schema vs design, diffs
-   the data against the baseline (the Profile's **output-validation baseline**, diffed with
-   the Profile's **data-diff tool** — example: `audit_helper`), evaluates each criterion, and
-   returns a **Validation Report** including requirement traceability and a
-   **Self-validatable: YES/NO** marker.
-2. **Branch on the report:**
-   - **Self-validatable: YES** (all criteria Objective and passed) → the agent
-     self-validates; no human gate. These ground-truth tasks (typically bugs/refactors)
-     are the candidates to run **on-the-loop**. Proceed to Review.
-   - **Self-validatable: NO** → **hard gate.** Present the impact summary + representative
-     samples for each Subjective (or failed) criterion and discuss with the user until
-     they confirm each outcome is correct / "good enough". Fix and re-validate any failed
-     Objective criterion.
-3. Hand any Objective outcome that should be a permanent regression to **`test-author`** to
-   codify as a dbt test.
-4. Confirm `<spec-dir>/validation-report.md` exists on disk.
-
-**Output:** Validation Report (per-criterion pass / fail / signed-off + data delta +
-`REQ-id` traceability).
-
-### TRANSITION: Validate Output → Review
-
-- [ ] `output-validator` was delegated via the Task tool
-- [ ] `validation-report.md` is on disk
-- [ ] Evidence sha recorded
-- [ ] Subjective VALs signed off, or Self-validatable: YES
-
-Proceed to **Review**.
+1. Work through the plan or design.
+2. Comment non-obvious logic with the requirement it implements (`AGENTS.md` §10).
+3. Write tests as you go, against the requirement, not the implementation, following the
+   test rules in `AGENTS.md` §5. Name the seam the test guards, don't write tests that
+   can't fail, and see each new non-structural test fail once against a broken input.
+4. Build and test the changed models.
+5. Check the change against `AGENTS.md` and fix any blocking violation.
 
 ---
 
-## Bug Fix Workflow
+## Phase: Validate output
 
-### Phase: Specify + Implement
+Delegate to `output-validator` with the changed models and the `VAL-xxx` criteria. It
+builds, checks schema, diffs against the Profile's **output-validation baseline**, and
+returns a report with **Self-validatable: YES / NO**.
 
-(Discovery has already produced the root cause with evidence.)
+- **YES** (every criterion Objective and passed) → continue.
+- **NO** → present the impact summary and samples for each Subjective or failed
+  criterion and resolve it with the user. Fix and re-validate failed Objective criteria.
 
-1. **Delegate to the `spec-author` sub-agent** (route: `bug`, phase: `specify`). It writes
-   a short `requirements.md` (root cause, EARS fix, regression guard). Invoke it again
-   with phase: `design` only if `grill-notes.md` records a structural choice.
-2. Implement the fix; add/adjust tests via **`test-author`**.
-3. Verify the regression guard holds and the change satisfies `AGENTS.md`.
+Objective outcomes that should hold permanently become dbt tests.
 
-**Output:** Fix + spec documenting what changed and why.
-
-### TRANSITION: Specify+Implement → Validate Output (Bug Fix)
-
-- [ ] `spec-author` and `test-author` were delegated via the Task tool
-- [ ] `requirements.md` exists; `design.md` is absent unless a structural choice was recorded
-- [ ] Evidence sha recorded for both agents
-
-Proceed to **Validate Output** (bug fixes usually have ground truth — the failing case's
-correct value + regression guard — so this is typically self-validatable).
+The report is working material. **Do not commit it.** Summarise the result in the PR body.
 
 ---
 
-## Refactor Workflow
+## Phase: Review
 
-### Phase: Design + Implement
+Delegate to `peer-reviewer` on the branch's changed models, passing the Validation
+Report summary. It returns High/Medium/Low issues and suggestions.
 
-(Discovery has already documented current behavior.)
-
-1. **Delegate to the `spec-author` sub-agent** (route: `refactor`, phase: `specify`).
-   It writes `requirements.md` (preserved vs allowed change). Invoke it again with
-   phase: `design` only if structure changes — in which case it must include an ADR
-   check per the Design phase guidance above.
-2. Implement. Tests via **`test-author`**.
-3. Run before/after comparisons on the defined metrics; confirm `AGENTS.md` compliance.
-   Hash-validate when any VAL says output must be identical.
-
-**Output:** Refactored code + comparison results.
-
-### TRANSITION: Design+Implement → Validate Output (Refactor)
-
-- [ ] `spec-author` and `test-author` were delegated via the Task tool
-- [ ] Preserved vs allowed change lists exist
-- [ ] Evidence sha recorded for both agents
-
-Proceed to **Validate Output** (refactors have ground truth — outputs must be identical
-before/after — so this is typically self-validatable).
-
----
-
-## Phase: Review (folded-in peer review)
-
-Runs before shipping. Also the entry point for a **standalone review** request.
-
-1. Delegate to the **`peer-reviewer`** sub-agent on the changed models in the current
-   branch. It returns structured Issues (High/Medium/Low) + Suggestions. It reads the
-   `output-validator`'s Validation Report for data-delta context rather than recomputing it.
-2. Walk High/Medium issues with the user one at a time, offering a specific fix for each
-   and implementing on approval. The user may decline any of them (not recommended for
-   High, but allowed).
-3. Log **every unimplemented item regardless of severity** — including any High/Medium
-   issues the user chose to skip — plus unimplemented Suggestions, to
-   `dbt/models/<folder>/<model_name>_issues.md` (append if it exists). Record each item's
-   severity so a skipped High is visible as such.
-
-**Output:** Review summary + outstanding-issues file.
-
-### TRANSITION: Review → Ship
-
-- [ ] `peer-reviewer` was delegated via the Task tool
-- [ ] High/Medium walked with the user (or fixed in scheduled mode)
-- [ ] Unimplemented items logged to `_issues.md`
-- [ ] Evidence sha recorded
-- [ ] Gate recorded
-
-Proceed to **Ship**.
+- Interactive: walk High and Medium issues with the user, offering a specific fix for
+  each. The user may decline.
+- Log every item not implemented — including declined Highs, with their severity — to
+  `dbt/models/<folder>/<model>_issues.md` (append if it exists). `_issues.md` is open
+  debt only, not a changelog.
 
 ---
 
 ## Phase: Ship
 
-Commit the work, push the branch, open the PR, and interpret CI to completion.
-
-1. **Confirm local health first.** Models build and tests pass locally, and the change
-   satisfies `AGENTS.md` (§9 PR gate). Do not push a known-red branch.
-2. **Commit & push.** Stage the change plus any `_issues.md` from Review. Use a concise
-   message referencing the ticket (e.g. `DATA-123: <summary>`). Push with
-   `git push -u origin <branch>`.
-3. **Open the PR** with `gh pr create`, using the repo's PR template. Title carries the
-   ticket ID; body summarizes the change and links the spec. (Ask before opening if the
-   user has not already approved shipping.)
-4. **Interpret CI.** Delegate to the **`ci-interpreter`** sub-agent to watch the PR's
-   checks (the Profile's **CI system** — example: dbt build/test + Deep Hub null/uniqueness
-   and AI data-output checks) to completion and return a PASS/FAIL/PENDING summary.
-5. **Act on the result:**
-   - **PASS** → report the green PR and stop.
-   - **FAIL (code/test)** → fix here, then re-push and re-interpret.
-   - **FAIL (data/infra)** → surface the classified failure to the user with the
-     recommended next action; do not blindly retry.
-
-Never merge automatically — leave the merge decision to the user.
-
-### TRANSITION: Ship → Done
-
-- [ ] `ci-interpreter` was delegated via the Task tool
-- [ ] Local health confirmed before push
-- [ ] PR opened from the Profile **PR template**
-- [ ] Evidence sha recorded
+1. Confirm models build and tests pass locally. Don't push a known-red branch.
+2. Stage only this change. Check `git status` before committing — no validation
+   reports, no unrelated files from a stash or another branch.
+3. Commit with the ticket ID (`DATA-123: <summary>`), push, and open the PR from the
+   repo's template. The body carries the summary, the REQ/VAL list (light route) or
+   spec link (full route), and the validation result.
+4. Delegate to `ci-interpreter` to watch checks to completion.
+   - **PASS** → done.
+   - **FAIL (code/test)** → fix, re-push, re-check.
+   - **FAIL (data/infra)**, including failures that also fail on the base branch → say
+     so plainly with evidence and the suggested next action. Don't retry blindly.
+5. Address automated review comments (e.g. CodeRabbit): fix what's valid, reply to each
+   saying whether it was accepted and fixed, declined (with reason), or logged to
+   `_issues.md`. If a fix changes code, rerun the affected tests (and output validation
+   if the data could change), commit, push, and wait for CI to pass again.
+6. Move the ticket to the review status. Never merge.
 
 ---
 
-## Documentation step
+## Gates
 
-Triggered when discovery surfaces new/undocumented models, and available standalone.
-Follow the patterns and templates in `references/documentation.md`.
+**Interactive (default).** At each gate for the route, show the artifact itself — the
+findings, the plan, the spec, the design — and ask with `ask_user_question`
+("Approve and proceed" / "Needs changes"), naming the phase ending and the one starting.
+Lead with risks and consequences, not with decisions restated as settled.
 
-- Write **contextual** descriptions: explain *why* a model exists and what business
-  question it answers — not a restatement of its columns. (`AGENTS.md` §4 makes
-  descriptions mandatory; this step is about making them good.)
-- Add/repair column descriptions that carry business meaning.
-- Where helpful, capture repo/database/schema-level "why" notes.
+**Scheduled** (`mode: scheduled` in the opening prompt). No questions. Keep going while
+the work can advance, and stop only when:
 
-Keep edits scoped to the models in play — do not bulk-document unrelated areas.
+- a decision the ticket doesn't settle would change what gets built — comment on the
+  ticket with the specific question, leave `TODO(<ticket>)` notes on the branch, push it,
+  and stop;
+- validation returns Subjective criteria — report them and stop before Ship;
+- the same problem has survived three fix attempts — report what you tried and stop;
+- CI fails for data/infra reasons — report and stop.
 
----
-
-## Spec File Conventions
-
-- All specs under the specs location named in the AGENTS.md Project Profile (`dbt/specs/`).
-- Directory names: kebab-case, prefixed with creation date `dd-mm-yy`
-  (e.g. `dbt/specs/28-05-26-user-export-feature/`).
-- Each spec directory has `requirements.md` (always) and `design.md` (features,
-  refactors when structure changes; bugs only if a structural choice is recorded).
-- `grill-notes.md` is a scratchpad, **not** a fourth spec document.
-- Number requirements `REQ-001`, `REQ-002`, … for traceability.
-- Specs are living documents — update them (with user approval) if scope changes.
-
-### `grill-notes.md` template
-
-```markdown
-# Grill notes — <ticket-id>
-
-## Route
-feature | bug | refactor | semantic-view
-
-## Decisions
-- Q: …
-  A: …
-  Rejected: …
-
-## Open questions
-- …
-
-## Structural choice (bug route only)
-- none | <one sentence>
-```
+Fix High peer-review issues; fix Medium where reasonable; log Low and suggestions.
 
 ---
 
-## Workflow State (`workflow-state.md`)
+## Documentation
 
-Every workflow tracks progress in `<spec-dir>/workflow-state.md`. This file is a
-**runtime artifact** — it exists only to assist the orchestrating agent during the
-workflow session. It is gitignored and never committed. Its audience is the agent
-(and hooks that inspect it), not humans reviewing the PR.
+Triggered when discovery surfaces new or undocumented models, and available standalone.
+Follow `references/documentation.md`.
 
-### Schema
+- Describe **why** a model exists and what business question it answers, not a
+  restatement of its columns (`AGENTS.md` §4).
+- Add column descriptions that carry business meaning.
 
-```markdown
-| Phase | Status | Sub-agent | Gate | Evidence |
-|-------|--------|-----------|------|----------|
-```
-
-| Column | Required | Content |
-|--------|----------|---------|
-| **Phase** | Always | Phase name (e.g. `Discover`, `Specify`, `Implement`, `Validate Output`, `Review`, `Ship`) |
-| **Status** | Always | One of: `pending`, `in-progress`, `complete`, `blocked` |
-| **Sub-agent** | Always | After the agent runs: `<name> delegated` (e.g. `discovery delegated`). Before it runs: the expected name. `—` if the phase has no agent. The blocking hook checks `delegated` against the hook ledger — the word alone is not enough. |
-| **Gate** | Always | Gate outcome: `approved` / `auto-approved (scheduled)` / `—` (not yet reached) / `blocked` |
-| **Evidence** | Always | Proof that the sub-agent was actually invoked and its output processed. See rules below. |
-
-### Evidence Column Rules
-
-The Evidence column proves a sub-agent actually ran and its output was processed. It is
-recorded inline in `workflow-state.md` only — no additional files are created for this
-purpose.
-
-**For phases without sub-agent delegation:** record `—` (same as Sub-agent column).
-Specify and Design **do** delegate to `spec-author` — do not write those docs inline.
-
-**Launching a sub-agent:** start the Task tool `description` with the agent name, e.g.
-`discovery: statsig shipped metric`. That is how the evidence hook knows which agent ran.
-
-**What to record:** the `sha:` value the hook gives you. When a sub-agent returns, the
-`record-evidence` hook hashes its **full returned text** and replies
-`Evidence recorded by hook: <agent> output → sha:xxxxxxxx`. Copy exactly that value.
-**Never compute a hash yourself** — only values the hook observed are accepted. You may
-add a short description, and cite a file only if it exists (e.g. `requirements.md`).
-
-**Verification (mechanical, in `require-delegation.js`):** every `delegated` row must
-cite a `sha:` the hook recorded for that agent in this spec, newer than all evidence above
-it; every cited file must exist. See Enforcement Hooks.
-
-**Re-entering a phase** ("Needs changes", a Retry Protocol loop): **append** a new row
-for that phase — never edit the old one. Appending re-opens that phase and every phase
-after it; the gates then check only the current cycle.
-
-### Example
-
-```markdown
-| Phase | Status | Sub-agent | Gate | Evidence |
-|-------|--------|-----------|------|----------|
-| Discover | complete | discovery delegated | approved | 34-line findings · sha:e9b12f4a |
-| Specify | complete | spec-author delegated | approved | requirements.md · sha:c1a90e22 |
-| Design | complete | spec-author delegated | approved | design.md · sha:91bb4d07 |
-| Implement | complete | test-author delegated | approved | 4 tests added · sha:4f19c7e2 |
-| Validate Output | complete | output-validator delegated | approved | self-validated, 0 row delta · sha:7c0e3d91 |
-| Review | in-progress | peer-reviewer | — | — |
-| Ship | pending | ci-interpreter | — | — |
-```
+Keep it to the models in play.
 
 ---
 
-## Gate Protocol
+## Capability skills (optional)
 
-A gate is a phase-boundary checkpoint. Its behavior depends on the execution mode.
-
-### Interactive mode (default):
-- Present the artifact itself (findings, spec, or design) — not a summary of it. If the
-  user has not seen it, they cannot approve it.
-- Use `ask_user_question` with options: `"Approve and proceed"` / `"Needs changes"`.
-- The question MUST name what phase is completing and what phase starts next.
-- Do NOT proceed past a gate without the user selecting "Approve and proceed". The hook
-  records the answer; one approval covers one gate, and only after that phase's evidence.
-
-### Scheduled mode:
-- Do NOT call `ask_user_question`.
-- Verify the transition checklist for the completing phase (every item satisfied).
-- If all satisfied → log `auto-approved (scheduled)` in the Gate column of
-  `workflow-state.md` and proceed.
-- If any item unsatisfied → treat as a failure and enter the Retry Protocol.
-- This is NOT "skip the gate" — it is "the gate checks itself instead of asking a human."
-
-### Both modes:
-- Sub-agent delegations are NEVER skipped regardless of mode.
-- Committed artifacts (requirements.md, design.md) are NEVER skipped.
-- Runtime state (workflow-state.md) MUST be maintained throughout the session.
-- The gate enforces *completeness*, not just *permission*.
-
----
-
-## Execution Mode
-
-This skill supports two execution modes. The mode is determined by how the workflow is
-invoked:
-
-| Mode | Trigger | Gate Behavior | Failure Behavior |
-|------|---------|---------------|------------------|
-| **interactive** (default) | User invokes skill directly | `ask_user_question` — hard stop until human approves | Present to user |
-| **scheduled** | `mode: scheduled` in the session's opening prompt (automations include it) | Self-checkpoint — auto-approve when artifacts are complete | Retry up to 3× then hard-stop |
-
-### Scheduled Mode Rules
-
-When running in scheduled mode, the following rules OVERRIDE the interactive gate behavior
-but **nothing else changes** — all phases, sub-agent delegations, artifacts, and transition
-checklists remain mandatory.
-
-#### 1. Gates become self-checkpoints
-
-Instead of calling `ask_user_question`, the agent:
-1. Verifies ALL items in the phase's transition checklist are satisfied (artifact exists,
-   sub-agent was delegated, workflow-state.md is updated, Evidence column holds the
-   hook-issued `sha:`). The hook only accepts `auto-approved (scheduled)` in a session
-   whose prompt contained `mode: scheduled`.
-2. If all satisfied → logs `auto-approved (scheduled)` in the Gate column of
-   `workflow-state.md` and proceeds.
-3. If any item is NOT satisfied (including a missing or empty Evidence cell for a phase
-   that requires sub-agent delegation) → treat as a failure (see Retry Protocol below).
-
-#### 2. Retry Protocol (max 3 attempts per problem)
-
-When the agent encounters a failure — build error, test failure, peer-reviewer blocking
-issue, output-validator failure, or incomplete transition checklist:
-
-1. **Identify the problem** — log a one-line description in `workflow-state.md` under a
-   `## Retry Log` section.
-2. **Attempt a fix** — apply the most targeted fix available (rewrite the failing SQL,
-   adjust the test, address the peer-review issue).
-3. **Re-run the failing check** — rebuild, re-test, re-delegate to the sub-agent.
-4. **Evaluate the result:**
-   - If the **same problem recurs** (same error message, same failing test, same blocking
-     issue) → increment the retry counter for that problem.
-   - If a **different failure** appears → this is progress. Reset the counter — it's a new
-     problem with its own 3 attempts.
-5. **After 3 failed attempts at the same problem** → HARD STOP. Write a summary to
-   `workflow-state.md` with status `blocked` and the retry log, then terminate the
-   workflow. Do NOT attempt a 4th fix or skip the failing phase.
-
-"Same problem" means: the same test name fails, the same build error occurs, or the same
-peer-reviewer issue is raised after the attempted fix. A *different* failure — even if it
-appears in the same phase — is treated as a new problem with fresh attempts.
-
-#### 3. Workflow type restrictions
-
-Scheduled mode is designed for tasks where all Validation Criteria are **Objective**
-(ground truth exists). If the `output-validator` returns `Self-validatable: NO`:
-- The workflow HARD STOPS immediately (this is not retryable — it requires human judgment).
-- Log the subjective criteria that need sign-off to `workflow-state.md`.
-
-#### 4. Review phase in scheduled mode
-
-The `peer-reviewer` sub-agent still runs. In scheduled mode:
-- **High severity issues** → the agent MUST attempt to fix them (counts toward retry
-  protocol if the fix fails).
-- **Medium severity issues** → the agent SHOULD attempt to fix them.
-- **Low severity / Suggestions** → log to `_issues.md`, do not fix.
-- If a High issue persists after 3 fix attempts → HARD STOP.
-
-#### 5. Ship phase in scheduled mode
-
-- Never merge automatically (same as interactive).
-- Open the PR and interpret CI.
-- On CI PASS → report success and stop (PR is ready for human merge).
-- On CI FAIL (code/test) → retry (same 3-attempt protocol).
-- On CI FAIL (data/infra) → HARD STOP (not retryable by the agent).
-
-#### 6. Workflow-state.md in scheduled mode
-
-The Retry Log section is appended to `workflow-state.md`:
-
-```markdown
-## Retry Log
-
-| Attempt | Phase | Problem | Action Taken | Result |
-|---------|-------|---------|--------------|--------|
-| 1 | Implement | `not_null_test_order_id` failed | Added COALESCE for NULL order_ids | Different error (progress) |
-| 2 | Implement | `unique_test_order_sk` failed | Fixed surrogate key logic | Same error |
-| 3 | Implement | `unique_test_order_sk` failed | Rewrote dedup logic | Same error |
-| — | — | HARD STOP | 3 attempts exhausted on same problem | blocked |
-```
-
----
-
-## Enforcement Hooks
-
-`workflow-state.md` is the agent's **claim**. The hooks check it against a **ledger**
-(`.cortex/spec-driven/ledger.jsonl`, local runtime state — gitignore `.cortex/`) that
-only the `record-evidence` hook writes, from facts the harness supplies:
-
-| Ledger fact | Recorded from | Checks |
-|---|---|---|
-| Sub-agent ran, `sha` of its full returned text | `PostToolUse` on `task` / `agent_output` | `delegated` rows and their `sha:` |
-| The user's actual answer | `PostToolUse` on `ask_user_question` | Gate `approved` |
-| Session started with `mode: scheduled` | `UserPromptSubmit` | Gate `auto-approved (scheduled)` |
-| User accepted pre-ledger evidence | `UserPromptSubmit` | legacy rows (below) |
-
-The lock is `PreToolUse` (`scripts/hooks/require-delegation.js`). It checks the
-**current cycle** (see Re-entering a phase):
-
-- **Write-gate** — refuse writing `models/**/*.sql` (macros, tests, analyses, and YAML
-  are never gated) unless:
-  - Discover is complete and `discovery` is `delegated`;
-  - every phase above the Implement row is complete **and** approved;
-  - phases are in order: none started (by status, by `delegated`, or because the ledger
-    saw its sub-agent run) before every phase above it was approved;
-  - every claim verifies (below);
-  - no new `ref()` points to a downstream layer — layer order and prefixes are read from
-    the AGENTS.md Project Profile (§1). No exception mechanism exists.
-- **Ship-gate** — refuse `git push` / `gh pr create` if any prior phase is incomplete,
-  any named sub-agent is not `delegated`, a required sub-agent is missing, or any claim
-  fails to verify.
-- **Claim verification** — a `complete` row needs Gate `approved` or
-  `auto-approved (scheduled)`; a `delegated` row must cite a hook-recorded `sha:` for that
-  agent, newer than all evidence above it; cited files must exist; each `approved` gate
-  needs its own "Approve and proceed" answer given **after** that phase's evidence;
-  `auto-approved (scheduled)` is accepted only in a session started with `mode: scheduled`.
-- **Ledger guard** — refuse any agent write to `.cortex/spec-driven/`.
-- Pick `workflow-state.md` by last write time, not directory name.
-- Fail-open on missing/unparseable state or profile. Escape: `DBT_SPEC_DRIVEN_ENFORCE=off`
-  (set by the human in the environment — the agent cannot set it for the hook).
-
-**Workflows started before the ledger existed** fail verification on rows the ledger never
-saw. The **user** (not the agent) types `spec-driven: accept legacy evidence for <spec-dir>`.
-That covers only rows already complete and approved at that moment, pinned to their exact
-Evidence text; every later or edited row is checked normally.
-
-**What the hooks cannot verify** (mitigated, not gated):
-- **The quality of an approval.** The hook knows the user chose "Approve and proceed", not
-  that they read the artifact. Present the artifact itself in the question, never a summary
-  of it.
-- **Facts outside the repo** — e.g. a Snowflake tag or grant actually existing. A local
-  hook has no Snowflake session. Any spec requirement that is a Snowflake-side fact must be
-  a Validation Criterion that `output-validator` checks by query, pasting the query and its
-  result into its return (so the output's hash covers the proof).
-- **Deliberate circumvention** — an agent obfuscating shell writes to the ledger, or
-  editing the installed hook scripts. The gates stop slips and shortcuts, not an adversary.
-
-See `references/field-feedback.md` (DATA-1378, DATA-1820).
-
----
-
-## Capability skills (optional side doors)
-
-Do **not** inject these into a one-line bug. Use only when asked, or when the orchestrator
-genuinely needs that side door:
+Use only when asked or genuinely needed:
 
 | Skill | When |
 |-------|------|
 | `spec-review` | Standalone review request |
-| `quality-audit` | Maintainability pass on hooks/scripts/large diffs |
-| `spec-debt` | Unresolved gates / ledgers |
+| `quality-audit` | Maintainability pass on scripts or large diffs |
+| `spec-debt` | Open `_issues.md` items and blocked tickets |
 | `verify-this` | Non-dbt local claim (CLI/UI/API) |
 | `ci-loop` | Watch this PR's checks until green |
-| `pr-ergonomics` | After gates, make the PR easier to review |
-| `work-summary` | Status / handoff from git + spec artifacts |
+| `pr-ergonomics` | Make the PR easier to review |
+| `work-summary` | Status or handoff from git history |
 
-`ci-failure-responder` stays the scheduled dbt Cloud → Jira path. `ci-loop` is this PR.
+`ci-failure-responder` is the scheduled dbt Cloud → ticket path; `ci-loop` is this PR.
 
-Further reading: `references/field-feedback.md`, `references/project-context.md`.
+See also `references/scheduled-mode.md`, `references/field-feedback.md`,
+`references/project-context.md`.
