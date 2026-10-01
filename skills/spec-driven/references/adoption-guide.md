@@ -53,7 +53,10 @@ It is **not** "off the loop" (fully autonomous, no oversight). A human always:
    - Does it match what you asked for?
    - Do CI checks pass?
    - Is the Validation Report clean?
-   - See the [reviewer guide](reviewer-guide.md) for details.
+   - See the [reviewer guide](reviewer-guide.md) for details. The peer-reviewer's
+     Architecture section is advisory: it flags only concerns this PR introduced
+     (duplicates, unused helpers, wrong layer/repo, extra abstraction, missing impact).
+     Pre-existing debt is Context, not a reject reason.
 
 6. **You decide:**
    - **Approve & merge** → Done. The change is live.

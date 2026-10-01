@@ -84,7 +84,8 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 4. **Validate output** — `output-validator` checks the data against the baseline and
    returns a report (not committed). Fingerprint/CLONE on refactors; Looker
    reconciliation when a VAL names it.
-5. **Review** — `peer-reviewer` on two axes: Standards vs Spec.
+5. **Review** — `peer-reviewer` on two axes: Standards vs Spec, plus an advisory
+   change-aware Architecture section (new concerns in the diff only).
 6. **Ship** — commit, push, open PR, interpret CI via `ci-interpreter`, answer automated
    review comments.
 

@@ -11,6 +11,38 @@
 
 ---
 
+## DATA-1753 — Change-aware architecture review (Cortex, October 2026)
+
+**Ticket:** DATA-1753
+**Branch:** `DATA-1753-change-aware-architecture-review`
+
+Pilot of the advisory Architecture section on three merged PRs plus this PR.
+Findings cite the changed file and existing code. Pre-existing debt is Context.
+
+### Retrospective
+
+| PR | Introduced | Context | Notes |
+|---|---|---|---|
+| #15 Looker reconciliation | none | none | Docs-only contract. Explore names are a generic example, not a team-only rule. |
+| #16 DATA-1383 close-out | **wrong-repo**: `require-delegation.js` keyed off `specs/` so this non-dbt plugin was treated as a dbt workflow | leftover advisory shell hooks | Quality-audit / verify-this / satellites look like duplicates but their descriptions already split the job. |
+| #20 verifiable enforcement | none | fail-open + leftover advisory hooks | Ledger extract is a move, not a second workflow. PR 20 later scoped the #16 hook to `dbt_project.yml`. |
+| this PR | none | peer-reviewer already covers layer/reuse; architecture makes that change-aware | No extra agent, hook, or committed report. |
+
+### Rule adjustments
+- Example LookML / team names in generic docs are **not** wrong-repo.
+- A second comparison (Looker vs dbt) is **not** a duplicate of the first.
+- A satellite skill with a distinct trigger and a one-line boundary is **not** extra-abstraction.
+- Helper extract (ledger.js) is **not** a duplicate of the file it was moved from.
+
+### Plugin actions taken
+| File | Change |
+|------|--------|
+| `agents/peer-reviewer.md` | Item 16 + Architecture output (Introduced / Context / Pass); also renumbered the two existing `12.` items |
+| `skills/spec-driven/SKILL.md` | Review phase logs unused Introduced items; skip `_issues.md` when there is no models tree |
+| `references/reviewer-guide.md`, `adoption-guide.md`, `README.md` | Advisory, change-aware, do not reject for Context |
+
+---
+
 ## Slimming for Opus 5.5 (Cortex, October 2026)
 
 **Tickets:** DATA-1822 (painful run), DATA-1823 (clean run)
