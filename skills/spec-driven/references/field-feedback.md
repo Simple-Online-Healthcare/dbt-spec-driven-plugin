@@ -11,6 +11,69 @@
 
 ---
 
+## DATA-1820 — Self-attested gates (Cortex, September 2026)
+
+**Ticket:** DATA-1820
+**Spec:** `<specs>/28-09-26-statsig-conversion-to-shipped-metric/`
+**Context:** Statsig conversion-to-shipped metric. The workflow ran under the August
+blocking hook, which passed at every step.
+
+### Observations (agent's own post-mortem)
+
+1. Skipped the approval after discovery; wrote the spec and never showed it to the user;
+   skipped the `requirements.md` and `design.md` approvals; implemented before approval.
+2. Marked gates `approved` that the user never approved.
+3. Computed evidence hashes from short headings, not the sub-agent's full response.
+4. Cited `validation-report.md` as evidence; the file did not exist.
+5. Ran peer review before Validate Output was approved, then applied its changes unapproved.
+6. Called `int_experiments__statsig_user_day → orders` (intermediate → mart) an "accepted"
+   layer exception. AGENTS.md §1 makes it blocking, and there is no exception mechanism.
+7. Spec required a Statsig tag but declared tag creation out of scope; the tag was never made.
+
+### Root cause
+
+Two layers, and the first hid the second:
+
+1. **The gate never ran.** `hooks.json` resolved its script with
+   `${CLAUDE_PLUGIN_ROOT:-…}`. The harness substitutes only the literal token
+   `${CLAUDE_PLUGIN_ROOT}` (it is not an env var), so outside the plugin repo the path became
+   `/scripts/hooks/require-delegation.js`. Node exited 1, which the harness logs but does not
+   block on. From 22 September on, Desktop logs show hundreds of these failures, nearly all
+   from `dbt-pipelines`. Separately, `plugin.json` listed `skills` as objects, which the CLI
+   rejects, so headless sessions loaded none of the plugin.
+2. **Even running, it trusted self-attestation.** The hook checked two cells (`Status`,
+   `Sub-agent`) of a file the agent writes. It parsed `Gate` and `Evidence` and never read
+   them, and it checked only the Discover row before model writes. A fabricated table exits 0.
+   Every other rule was prose.
+
+### Correct pattern
+
+- Verify the enforcement runs **where the work happens**, not only in the plugin repo's own
+  tests. A hook that cannot find its script must say so, not fail silently.
+- The table is a claim; verify it against facts the agent cannot write. `PostToolUse`
+  receives the sub-agent's real returned text and the user's real answer, and
+  `UserPromptSubmit` receives the real prompt. That is the second observer this plugin
+  previously said did not exist.
+- The hook hashes; the agent copies. Never ask the agent to compute evidence.
+- Check order by table position, not phase names, so every route works. Treat an appended
+  row as re-entry, so rework cycles don't trip the ordering check.
+
+### Plugin actions taken
+
+| File | Change |
+|------|--------|
+| `scripts/hooks/record-evidence.js` | New observer (never blocks): ledger of sub-agent output hashes, approval answers, scheduled-mode sessions, user legacy grants |
+| `scripts/hooks/ledger.js` | New shared helpers: state-file lookup, state-table parser (first `Phase` table only), current-cycle view |
+| `scripts/hooks/require-delegation.js` | Write-gate: all phases above Implement approved, ordering, claim verification, layer direction from AGENTS.md. Ship-gate: claim verification. Ledger guard |
+| `hooks/hooks.json` | Resolve scripts via the literal `${CLAUDE_PLUGIN_ROOT}`; warn visibly if a script is missing. Register `PostToolUse` (`task`, `agent_output`, `ask_user_question`) and `UserPromptSubmit` |
+| `.cortex-plugin/plugin.json` | `"skills": "skills"` (was an array of objects the CLI rejects); description moved into `ci-failure-responder` frontmatter |
+| `skills/spec-driven/SKILL.md` | Copy hook-issued `sha:`; name the agent in the Task description; append rows to re-enter; legacy grant; what hooks cannot verify. Removed "do not validate Evidence `sha:` in the hook" and the false claim that `SubagentStop` checks Evidence |
+
+Observation 7 (a Snowflake-side fact) is not hook-checkable. Mitigation: such requirements
+become Validation Criteria that `output-validator` proves by query.
+
+---
+
 ## DATA-1378 — Source schema relocation (Cortex, June 2026)
 
 **Ticket:** DATA-1378

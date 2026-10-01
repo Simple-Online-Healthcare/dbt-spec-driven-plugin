@@ -6,9 +6,33 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PLUGIN_HOME=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; if [ -z \"$PLUGIN_HOME\" ]; then   if [ -f scripts/hooks/require-delegation.js ]; then PLUGIN_HOME=\"$PWD\";   elif [ -f \"$(dirname \"$0\")/../scripts/hooks/require-delegation.js\" ]; then PLUGIN_HOME=\"$(cd \"$(dirname \"$0\")/..\" && pwd)\";   fi; fi; node \"$PLUGIN_HOME/scripts/hooks/require-delegation.js\"",
+            "command": "f=\"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/require-delegation.js\"; if [ -f \"$f\" ]; then node \"$f\"; else printf '{\"systemMessage\":\"dbt-spec-driven: enforcement hook not found at %s — workflow gates are NOT running.\"}' \"$f\"; fi",
             "timeout": 10,
             "statusMessage": "Checking workflow delegation"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(task|agent_output|ask_user_question|Task|AgentOutput|AskUserQuestion)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/record-evidence.js\"; if [ -f \"$f\" ]; then node \"$f\"; else printf '{\"systemMessage\":\"dbt-spec-driven: evidence hook not found at %s — sub-agent evidence is NOT being recorded.\"}' \"$f\"; fi",
+            "timeout": 10,
+            "statusMessage": "Recording workflow evidence"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/record-evidence.js\"; if [ -f \"$f\" ]; then node \"$f\"; else printf '{\"systemMessage\":\"dbt-spec-driven: evidence hook not found at %s — sub-agent evidence is NOT being recorded.\"}' \"$f\"; fi",
+            "timeout": 10
           }
         ]
       }
