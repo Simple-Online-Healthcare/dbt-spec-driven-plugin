@@ -14,7 +14,7 @@ AI-generated PRs include artifacts that human PRs typically don't:
 | **Requirements** (`REQ`/`VAL`) | PR body (light route) or `dbt/specs/<date>-<name>/requirements.md` (full route) | What the agent worked against |
 | **Design** (`design.md`) | Spec directory, full route only | Technical approach and trade-offs |
 | **Validation summary** | PR body | Data correctness evidence from `output-validator` |
-| **Issues log** (`_issues.md`) | `dbt/models/<folder>/` | Unimplemented peer-review suggestions and unused architecture findings |
+| **Issues log** (`_issues.md`) | `dbt/models/<folder>/`; plugin-only: nearest changed-path `_issues.md`, or skip if there is no models tree | Unimplemented peer-review suggestions and unused architecture findings |
 | **Verbose commit messages** | Git log | Reference ticket ID and REQ numbers |
 
 ---

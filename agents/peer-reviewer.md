@@ -49,7 +49,8 @@ For each changed model, evaluate and flag where relevant:
       every VAL. If the spec is missing, say so; do not invent one.
 14. **Solution ladder.** Flag `source()` outside the first layer, hand-rolled unions
     where `dbt_utils.union_relations` applies, and any SQL written below a higher §13
-    rung that applied. Name the unused macro.
+    rung that applied. Treat these as blocking §13 findings, not Architecture findings;
+    do not duplicate or reclassify them as advisory or Context. Name the unused macro.
 15. **Unverified claims.** Flag assertions about coverage, grain, or "output identical"
     that are not backed by a query, fingerprint MATCH, or Validation Report evidence. Flag any data criterion marked
     PASS from SQL inspection alone.
@@ -62,7 +63,8 @@ For each changed model, evaluate and flag where relevant:
     Check these five, and only these:
     - **Duplicate / near-duplicate** — a nearby model, macro, or utility already does this.
     - **Existing package / macro** — a repo macro, dbt built-in, or installed package
-      already covers it (`AGENTS.md` §13). Name the unused helper.
+      already covers it, except for blocking §13 solution-ladder violations (those
+      stay on item 14). Name the unused helper.
     - **Wrong layer or repository** — logic in the wrong dbt layer (Profile layers),
       team-specific rules landing in this plugin (or generic workflow landing in a
       consumer dbt repo), or dbt logic that belongs in a Profile **downstream consumer
@@ -113,4 +115,5 @@ duplicate it.)
 The calling workflow walks High/Medium issues with the user and logs **every**
 unimplemented issue (any severity, including High/Medium the user chose to skip) plus
 unimplemented Suggestions and unused Architecture **Introduced** items to
-`dbt/models/<folder>/<model_name>_issues.md`.
+`dbt/models/<folder>/<model_name>_issues.md`. For plugin-only changes, use the
+nearest changed-path `_issues.md`, or skip if there is no models tree.
