@@ -106,8 +106,8 @@ on `order_id` should be `patient_id` because the grain of this model is per-pati
 | Aspect | Human PR | AI PR |
 |--------|----------|-------|
 | Commit messages | Varies | Always references ticket + REQ IDs |
-| Spec artifacts | Sometimes present | Always present in `dbt/specs/` |
-| Validation report | Rarely | Always — includes data diff results |
+| Spec artifacts | Sometimes present | Full route: `dbt/specs/<date>-<name>/`. Light route: REQ/VAL in the PR body |
+| Validation result | Rarely | Always — summarised in the PR body (the report itself isn't committed) |
 | Issues log | No | Yes — documents things the peer-reviewer flagged but didn't fix |
 | Code style | Personal style | Consistent with AGENTS.md + SQLFluff |
 | PR body | Varies | Structured: summary, requirements map, validation status |
@@ -125,7 +125,7 @@ time, flag it in the team channel so someone else picks it up.
 
 ## Tips
 
-- **Read the Validation Report first.** If the data is provably correct (objective
+- **Read the validation result in the PR body first.** If the data is provably correct (objective
   criteria all pass), your review can focus on code quality and safety rather than
   correctness.
 - **Check `_issues.md`** — this contains things the peer-reviewer flagged as suggestions

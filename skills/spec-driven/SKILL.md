@@ -133,8 +133,10 @@ When a user has made a decision, carry it forward **in their words**. Don't wide
 ("graph only for stableID" is not "graph only for every ID type").
 
 **Light route:** write the plan in your reply — the REQ/VAL list, the files you'll
-change, and any risk from Discover. Put the same REQ/VAL list in the ticket description
-and, later, the PR body. No spec files.
+change, the expected schema change (columns added or changed, their types, and the
+grain, even if unchanged), and any risk from Discover. Pass that plan to
+`output-validator` for its schema check. Put the same REQ/VAL list in the ticket
+description and, later, the PR body. No spec files.
 
 **Full route:** delegate to `spec-author` for `requirements.md`, then again for
 `design.md`. The design covers files to change, lineage, trade-offs, the `AGENTS.md`
@@ -214,7 +216,8 @@ Report summary. It returns High/Medium/Low issues and suggestions.
      so plainly with evidence and the suggested next action. Don't retry blindly.
 5. Address automated review comments (e.g. CodeRabbit): fix what's valid, reply to each
    saying whether it was accepted and fixed, declined (with reason), or logged to
-   `_issues.md`.
+   `_issues.md`. If a fix changes code, rerun the affected tests (and output validation
+   if the data could change), commit, push, and wait for CI to pass again.
 6. Move the ticket to the review status. Never merge.
 
 ---
