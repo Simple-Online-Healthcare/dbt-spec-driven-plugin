@@ -105,7 +105,9 @@ Find the facts before proposing anything.
   metric, a similar fix, a prior spec in the specs location — and follow its conventions
   (file layout, one YAML per model, existing macros, test style). Most rework comes from
   not doing this.
-- Check the ADR index for the domain.
+- Check the ADR index for the domain. Note whether a precedent exists — an ADR or an
+  existing implementation of the same approach. This decides the route and whether an
+  ADR is needed.
 - Test every assumption in the ticket against the code or the data. Say which were
   confirmed and which were wrong, with the query or file that shows it.
 - Bug route: write the failing query and check data coverage (`MIN`/`MAX`) on the
@@ -139,6 +141,20 @@ and, later, the PR body. No spec files.
 solution-ladder rung, and the ADR check (comply, or propose a superseding ADR). Specs
 live in the Profile's **specs location** as `<dd-mm-yy>-<name>/`. Update the ticket with
 the branch, requirement IDs and impacted models.
+
+**When to write an ADR.** ADRs record approaches; `design.md` records one change.
+
+| Situation | Route | Written |
+|---|---|---|
+| Follows an existing precedent (ADR or in-repo pattern) | Light | PR body only |
+| New structure, but nothing others will copy or rely on (e.g. a one-off report mart) | Full | `requirements.md` + `design.md` |
+| No precedent for the approach, and other models will copy it or depend on its semantics (e.g. a new identity graph, key strategy, transformation technique) | Full | Spec files + a new ADR stated in general terms |
+| Departs from an existing ADR | Full | Spec files + a superseding ADR |
+
+Write the ADR so it covers the general pattern, not this ticket: the next change of the
+same kind should find it in Discover and take the light route. `design.md` links to the
+ADR rather than restating it. In scheduled mode, draft the ADR as `Proposed` in the PR;
+a human accepts it.
 
 ---
 
