@@ -165,8 +165,10 @@ a human accepts it.
 1. Work through the plan or design.
 2. Comment non-obvious logic with the requirement it implements (`AGENTS.md` §10).
 3. Write tests as you go, against the requirement, not the implementation, following the
-   test rules in `AGENTS.md` §5. Name the seam the test guards, don't write tests that
-   can't fail, and see each new non-structural test fail once against a broken input.
+   test rules in `AGENTS.md` §5/§5a. Name the seam the test guards, derive expectations
+   from the requirement before reading the SQL, don't write tests that can't fail, and
+   see each new non-structural test fail once against a broken input. Revert every
+   mutation (`git diff` on models shows only intended changes).
 4. Build and test the changed models.
 5. Check the change against `AGENTS.md` and fix any blocking violation.
 
