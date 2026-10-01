@@ -47,7 +47,9 @@ For each changed model, evaluate and flag where relevant:
     - **No falsification → High.** Every non-structural test must appear in the PR body's
       falsification record with a method and "failed as expected". **Re-run at least one
       claimed falsification yourself** (apply the mutation or injected row, confirm it
-      fails, revert). If it passes, the test is tautological → High.
+      fails, revert). If it passes, the falsification failed → High: either the mutation
+      did not break the requirement (pick one that does) or the test's outcome is fixed by
+      the implementation (tautological — rewrite it).
     - **Requirement uncovered → High.** A `REQ-xxx` with no test and no Gap entry. Only
       structural tests covering a logic-bearing model also counts.
     - **Wrong test type → Medium.** Logic tested only by generic tests where a unit test
