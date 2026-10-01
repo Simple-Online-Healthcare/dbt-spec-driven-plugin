@@ -129,7 +129,7 @@ ownership at the point of merge.
 
 | Failure | Agent behavior | Human action needed |
 |---------|---------------|---------------------|
-| Same problem after 3 fix attempts | Hard-stop, logs retry report to `workflow-state.md` | Pick up from the retry log; may need a different approach |
+| Same problem after 3 fix attempts | Stops; reports what was tried on the ticket | Pick up from the ticket comment; may need a different approach |
 | Subjective validation criteria found | Hard-stop immediately | Review the output and provide sign-off or redirect |
 | CI failure (data/infra, not code) | Hard-stop, surfaces classified failure | Investigate infra issue; re-trigger when resolved |
 | CI failure (code/test) | Retry (up to 3 attempts) | Only intervenes if retries exhaust |

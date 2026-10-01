@@ -3,7 +3,7 @@
 > Canonical log of observed agent behavior during spec-driven workflows. Each entry links
 > to a ticket, names the host environment, and records which plugin files were updated to
 > prevent recurrence. Update this file whenever field feedback surfaces — it feeds agent
-> briefs and the blocking hook in `scripts/hooks/require-delegation.js`.
+> briefs and the workflow skill.
 >
 > **Adopting this plugin?** The entry below is retained as a **worked example** from the
 > project this plugin originated in. Keep it for reference or clear it and start your own
@@ -11,11 +11,54 @@
 
 ---
 
+## Slimming for Opus 5.5 (Cortex, October 2026)
+
+**Tickets:** DATA-1822 (painful run), DATA-1823 (clean run)
+**Context:** DATA-1823 ran the full scheduled workflow end to end with every phase and
+sub-agent, and the mistakes that did happen on DATA-1822/1823 were never the kind the
+enforcement was built to catch.
+
+### Observations
+1. No phase or sub-agent was skipped on either run. The write-gate, ship-gate and hash
+   ledger never caught anything; they added tool calls, bash hashing and state-file edits.
+2. The actual mistakes were convention misses: a split YAML file, duplicated macros, a
+   magic-number test, a user decision widened in a spec-author brief, and
+   `validation-report.md` committed to the PR (twice, across both tickets).
+3. `test-author` on DATA-1823 read tests already written and returned "adequate" — pure
+   overhead. `discovery` produced good findings that the main thread could have gathered
+   with the same reads.
+4. `grill-notes.md` was boilerplate on a ticket that followed an existing pattern.
+5. Committed specs were ~14x the code size on a pattern-replication change, and agents
+   rarely read old specs; the code, YAML and PR history carried the same pattern.
+6. The output-validator marked data criteria PASS from reading SQL when the models hadn't
+   been rebuilt.
+
+### Correct pattern
+- Discovery and tests in the main thread; read the nearest precedent before writing.
+- Light route (no committed specs) for changes that follow an existing pattern; full
+  route keeps `requirements.md` + `design.md` for new structure and real trade-offs.
+- Carry user decisions verbatim. Check `git status` before committing.
+- Validation report returned, not written to disk; summarised in the PR body.
+
+### Plugin actions taken
+| File | Change |
+|------|--------|
+| `scripts/hooks/*` | Removed: require-delegation, record-evidence, ledger, tests |
+| `hooks/hooks.json` | Kept SessionStart (AGENTS.md + context ledger) and SessionEnd only |
+| `agents/discovery.md`, `agents/test-author.md` | Removed |
+| `agents/spec-author.md` | Full route only; no grill-notes input; don't widen decisions; lead with risk |
+| `agents/output-validator.md` | Report returned only; no PASS from SQL inspection alone |
+| `skills/spec-driven/SKILL.md` | Light/full routing; no workflow-state, hashes, transition checklists or retry log |
+| `references/scheduled-mode.md` | Keep-going rules and explicit stop conditions |
+
+---
+
 ## DATA-1820 — Self-attested gates (Cortex, September 2026)
 
 **Ticket:** DATA-1820
 **Spec:** `<specs>/28-09-26-statsig-conversion-to-shipped-metric/`
-**Context:** Statsig conversion-to-shipped metric. The workflow ran under the August
+**Context:** (Historical — the hooks described here were removed in October 2026; see
+the entry above.) Statsig conversion-to-shipped metric. The workflow ran under the August
 blocking hook, which passed at every step.
 
 ### Observations (agent's own post-mortem)

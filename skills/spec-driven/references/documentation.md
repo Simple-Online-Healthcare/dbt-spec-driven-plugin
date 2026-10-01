@@ -107,8 +107,7 @@ case when ...
 
 ## When to run this step
 
-- Automatically: when the `discovery` agent flags new/undocumented models a change
-  depends on.
+- Automatically: when Discover finds new/undocumented models a change depends on.
 - Standalone: when the user asks to "document" a model, on the current branch.
 
 Keep edits scoped to the models in play — do not bulk-document unrelated areas.

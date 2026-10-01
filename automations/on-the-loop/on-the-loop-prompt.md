@@ -78,9 +78,9 @@ and classification in the ticket description — use this as context.
 
 Run the spec-driven workflow in scheduled mode. This means:
 
-- All gates self-checkpoint (no human approval needed)
-- Retry protocol: max 3 attempts per unique problem
-- Hard-stop on subjective validation or 3 failed retries
+- No human gates; keep working while the work can advance
+- Stop after three fix attempts on the same problem
+- Stop on subjective validation criteria or an unresolved decision
 - PR opened but never auto-merged
 
 ```
@@ -91,7 +91,7 @@ Intent: Fix — <summary from ticket description with error details>
 
 The workflow will:
 1. Discover the root cause in the codebase
-2. Write a spec (requirements.md) for the fix
+2. Define REQ/VAL criteria for the fix (in the PR body; spec files only on the full route)
 3. Implement the fix following AGENTS.md rules
 4. Validate the output (must be self-validatable for scheduled mode)
 5. Peer-review the change
@@ -112,7 +112,7 @@ curl -s -X POST \
 ```
 
 **On hard-stop (workflow blocked):**
-- Comment on the Jira ticket with the failure summary and retry log
+- Comment on the Jira ticket with the failure summary and what was tried
 - Remove the `on-the-loop` label so it is not retried tomorrow
 - Transition the ticket back to "Up Next" for human triage
 
