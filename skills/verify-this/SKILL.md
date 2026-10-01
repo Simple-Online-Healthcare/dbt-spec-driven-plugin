@@ -15,8 +15,8 @@ outcomes.
 - For dbt model output and `VAL-xxx` data criteria, delegate to `output-validator`.
 - Use this skill for local surfaces that `output-validator` does not own: CLI, UI, API,
   compiler/typecheck, smoke test, performance, memory, and user-visible behavior.
-- If this skill produces evidence relevant to a spec criterion, link the evidence from
-  the Validation Report or active `workflow-state.md`.
+- If this skill produces evidence relevant to a spec criterion, include it in the
+  validation summary in the PR body.
 
 ## Workflow
 

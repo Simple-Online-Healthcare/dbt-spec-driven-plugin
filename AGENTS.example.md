@@ -141,7 +141,12 @@ The full standard lives in the project's testing ADR (dbt-pipelines: ADR-007). S
   coverage of a business requirement.
 - **Falsification.** Every new or changed non-structural test must be seen to fail once
   against a broken input (unit fixture, model mutation, or injected violating row) before
-  it is accepted. The method is recorded.
+  it is accepted. Mutate the model, inject a violating row, or for unit tests break the
+  logic under test; confirm the failure, then revert. Record test, method and result in
+  the PR body. A test that cannot be made to fail is tautological.
+- **Tautology patterns** (also rejected): `unique` on a key the model generates itself
+  (other than the structural PK test), a singular test that re-derives the model's logic,
+  a `where:` filter that excludes the rows that could violate the rule.
 - **Coverage floor.** Every intermediate/mart model with non-trivial logic has at least
   one non-structural test. Every requirement maps to a test or is listed as a Gap with a
   reason.

@@ -22,9 +22,8 @@ Do not capture:
 
 | Kind | Where | Job |
 |------|-------|-----|
-| Ticket scratchpad | `<spec-dir>/grill-notes.md` | Interview notes, rejected options, open questions. Not the spec. |
 | Durable glossary | the **context ledger** named in the AGENTS.md Project Profile (example: `docs/data-team-context.md` in the **dbt repo**) | Terms + verified constraints that outlive the ticket. |
-| Ticket spec | `<spec-dir>/requirements.md` and, when the route needs it, `design.md` | Testable behaviour. Written by `spec-author` from notes + discovery. |
+| Ticket spec | Light route: REQ/VAL in the PR body and ticket. Full route: `<spec-dir>/requirements.md` + `design.md` | Testable behaviour and design rationale. |
 | Session telemetry | the Profile's **local notes location** (example: `.cortex/notes/`) | Gitignored handoff. Not a team source of truth. |
 | ADR | `docs/adr/` in the **dbt repo**, rare | Only if hard to reverse AND surprising AND a real trade-off. |
 
@@ -44,6 +43,5 @@ _Avoid_: purchase, transaction
 
 1. User states a reusable constraint → capture it (unless sensitive or ambiguous).
 2. Fact inferred from code, query, or docs → mark `Verified` and cite the source.
-3. Plausible but unproven → leave it in `grill-notes.md` as `Needs verification`. Do not put it in the glossary.
-4. Before context compaction, update `grill-notes.md` and any new glossary terms.
-5. Scheduled mode does not grill and does not invent glossary entries.
+3. Plausible but unproven → raise it as an open question on the ticket. Do not put it in the glossary.
+4. Scheduled mode does not invent glossary entries.

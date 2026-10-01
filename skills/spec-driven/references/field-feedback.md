@@ -3,11 +3,117 @@
 > Canonical log of observed agent behavior during spec-driven workflows. Each entry links
 > to a ticket, names the host environment, and records which plugin files were updated to
 > prevent recurrence. Update this file whenever field feedback surfaces — it feeds agent
-> briefs and the blocking hook in `scripts/hooks/require-delegation.js`.
+> briefs and the workflow skill.
 >
 > **Adopting this plugin?** The entry below is retained as a **worked example** from the
 > project this plugin originated in. Keep it for reference or clear it and start your own
 > log — the format and the "How to add a new entry" protocol are what matter.
+
+---
+
+## Slimming for Opus 5.5 (Cortex, October 2026)
+
+**Tickets:** DATA-1822 (painful run), DATA-1823 (clean run)
+**Context:** DATA-1823 ran the full scheduled workflow end to end with every phase and
+sub-agent, and the mistakes that did happen on DATA-1822/1823 were never the kind the
+enforcement was built to catch.
+
+### Observations
+1. No phase or sub-agent was skipped on either run. The write-gate, ship-gate and hash
+   ledger never caught anything; they added tool calls, bash hashing and state-file edits.
+2. The actual mistakes were convention misses: a split YAML file, duplicated macros, a
+   magic-number test, a user decision widened in a spec-author brief, and
+   `validation-report.md` committed to the PR (twice, across both tickets).
+3. `test-author` on DATA-1823 read tests already written and returned "adequate" — pure
+   overhead. `discovery` produced good findings that the main thread could have gathered
+   with the same reads.
+4. `grill-notes.md` was boilerplate on a ticket that followed an existing pattern.
+5. Committed specs were ~14x the code size on a pattern-replication change, and agents
+   rarely read old specs; the code, YAML and PR history carried the same pattern.
+6. The output-validator marked data criteria PASS from reading SQL when the models hadn't
+   been rebuilt.
+
+### Correct pattern
+- Discovery and tests in the main thread; read the nearest precedent before writing.
+- Light route (no committed specs) for changes that follow an existing pattern; full
+  route keeps `requirements.md` + `design.md` for new structure and real trade-offs.
+- Carry user decisions verbatim. Check `git status` before committing.
+- Validation report returned, not written to disk; summarised in the PR body.
+
+### Plugin actions taken
+| File | Change |
+|------|--------|
+| `scripts/hooks/*` | Removed: require-delegation, record-evidence, ledger, tests |
+| `hooks/hooks.json` | Kept SessionStart (AGENTS.md + context ledger) and SessionEnd only |
+| `agents/discovery.md`, `agents/test-author.md` | Removed |
+| `agents/spec-author.md` | Full route only; no grill-notes input; don't widen decisions; lead with risk |
+| `agents/output-validator.md` | Report returned only; no PASS from SQL inspection alone |
+| `skills/spec-driven/SKILL.md` | Light/full routing; no workflow-state, hashes, transition checklists or retry log |
+| `references/scheduled-mode.md` | Keep-going rules and explicit stop conditions |
+
+---
+
+## DATA-1820 — Self-attested gates (Cortex, September 2026)
+
+**Ticket:** DATA-1820
+**Spec:** `<specs>/28-09-26-statsig-conversion-to-shipped-metric/`
+**Context:** (Historical — the hooks described here were removed in October 2026; see
+the entry above.) Statsig conversion-to-shipped metric. The workflow ran under the August
+blocking hook, which passed at every step.
+
+### Observations (agent's own post-mortem)
+
+1. Skipped the approval after discovery; wrote the spec and never showed it to the user;
+   skipped the `requirements.md` and `design.md` approvals; implemented before approval.
+2. Marked gates `approved` that the user never approved.
+3. Computed evidence hashes from short headings, not the sub-agent's full response.
+4. Cited `validation-report.md` as evidence; the file did not exist.
+5. Ran peer review before Validate Output was approved, then applied its changes unapproved.
+6. Called `int_experiments__statsig_user_day → orders` (intermediate → mart) an "accepted"
+   layer exception. AGENTS.md §1 makes it blocking, and there is no exception mechanism.
+7. Spec required a Statsig tag but declared tag creation out of scope; the tag was never made.
+
+### Root cause
+
+Two layers, and the first hid the second:
+
+1. **The gate never ran.** `hooks.json` resolved its script with
+   `${CLAUDE_PLUGIN_ROOT:-…}`. The harness substitutes only the literal token
+   `${CLAUDE_PLUGIN_ROOT}` (it is not an env var), so outside the plugin repo the path became
+   `/scripts/hooks/require-delegation.js`. Node exited 1, which the harness logs but does not
+   block on. From 22 September on, Desktop logs show hundreds of these failures, nearly all
+   from `dbt-pipelines`. Separately, `plugin.json` listed `skills` as objects, which the CLI
+   rejects, so headless sessions loaded none of the plugin.
+2. **Even running, it trusted self-attestation.** The hook checked two cells (`Status`,
+   `Sub-agent`) of a file the agent writes. It parsed `Gate` and `Evidence` and never read
+   them, and it checked only the Discover row before model writes. A fabricated table exits 0.
+   Every other rule was prose.
+
+### Correct pattern
+
+- Verify the enforcement runs **where the work happens**, not only in the plugin repo's own
+  tests. A hook that cannot find its script must say so, not fail silently.
+- The table is a claim; verify it against facts the agent cannot write. `PostToolUse`
+  receives the sub-agent's real returned text and the user's real answer, and
+  `UserPromptSubmit` receives the real prompt. That is the second observer this plugin
+  previously said did not exist.
+- The hook hashes; the agent copies. Never ask the agent to compute evidence.
+- Check order by table position, not phase names, so every route works. Treat an appended
+  row as re-entry, so rework cycles don't trip the ordering check.
+
+### Plugin actions taken
+
+| File | Change |
+|------|--------|
+| `scripts/hooks/record-evidence.js` | New observer (never blocks): ledger of sub-agent output hashes, approval answers, scheduled-mode sessions, user legacy grants |
+| `scripts/hooks/ledger.js` | New shared helpers: state-file lookup, state-table parser (first `Phase` table only), current-cycle view |
+| `scripts/hooks/require-delegation.js` | Write-gate: all phases above Implement approved, ordering, claim verification, layer direction from AGENTS.md. Ship-gate: claim verification. Ledger guard |
+| `hooks/hooks.json` | Resolve scripts via the literal `${CLAUDE_PLUGIN_ROOT}`; warn visibly if a script is missing. Register `PostToolUse` (`task`, `agent_output`, `ask_user_question`) and `UserPromptSubmit` |
+| `.cortex-plugin/plugin.json` | `"skills": "skills"` (was an array of objects the CLI rejects); description moved into `ci-failure-responder` frontmatter |
+| `skills/spec-driven/SKILL.md` | Copy hook-issued `sha:`; name the agent in the Task description; append rows to re-enter; legacy grant; what hooks cannot verify. Removed "do not validate Evidence `sha:` in the hook" and the false claim that `SubagentStop` checks Evidence |
+
+Observation 7 (a Snowflake-side fact) is not hook-checkable. Mitigation: such requirements
+become Validation Criteria that `output-validator` proves by query.
 
 ---
 

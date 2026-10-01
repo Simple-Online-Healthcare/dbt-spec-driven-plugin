@@ -11,9 +11,9 @@ AI-generated PRs include artifacts that human PRs typically don't:
 
 | Artifact | Location | Purpose |
 |----------|----------|---------|
-| **Spec** (`requirements.md`) | `dbt/specs/<date>-<name>/` | The requirements the agent worked against |
-| **Design** (`design.md`) | Same directory | Technical approach (features/refactors) |
-| **Validation Report** | `dbt/specs/<date>-<name>/workflow-state.md` or linked | Data correctness evidence |
+| **Requirements** (`REQ`/`VAL`) | PR body (light route) or `dbt/specs/<date>-<name>/requirements.md` (full route) | What the agent worked against |
+| **Design** (`design.md`) | Spec directory, full route only | Technical approach and trade-offs |
+| **Validation summary** | PR body | Data correctness evidence from `output-validator` |
 | **Issues log** (`_issues.md`) | `dbt/models/<folder>/` | Unimplemented peer-review suggestions |
 | **Verbose commit messages** | Git log | Reference ticket ID and REQ numbers |
 
@@ -23,13 +23,14 @@ AI-generated PRs include artifacts that human PRs typically don't:
 
 ### 1. Does it match the spec?
 
-Read the `requirements.md`. Every `REQ-xxx` should be addressed. If a requirement is
+Read the REQ list (PR body or `requirements.md`). Every `REQ-xxx` should be addressed. If a requirement is
 missing from the implementation, reject.
 
 ### 2. Do tests pass?
 
 - CI checks should be green.
-- The Validation Report in `workflow-state.md` confirms data correctness.
+- The validation summary in the PR body confirms data correctness — and says which
+  criteria were checked against data versus by reading the SQL.
 - If CI is red, do not approve — even if the code looks fine.
 
 ### 3. AGENTS.md compliance?
@@ -105,8 +106,8 @@ on `order_id` should be `patient_id` because the grain of this model is per-pati
 | Aspect | Human PR | AI PR |
 |--------|----------|-------|
 | Commit messages | Varies | Always references ticket + REQ IDs |
-| Spec artifacts | Sometimes present | Always present in `dbt/specs/` |
-| Validation report | Rarely | Always — includes data diff results |
+| Spec artifacts | Sometimes present | Full route: `dbt/specs/<date>-<name>/`. Light route: REQ/VAL in the PR body |
+| Validation result | Rarely | Always — summarised in the PR body (the report itself isn't committed) |
 | Issues log | No | Yes — documents things the peer-reviewer flagged but didn't fix |
 | Code style | Personal style | Consistent with AGENTS.md + SQLFluff |
 | PR body | Varies | Structured: summary, requirements map, validation status |
@@ -124,7 +125,7 @@ time, flag it in the team channel so someone else picks it up.
 
 ## Tips
 
-- **Read the Validation Report first.** If the data is provably correct (objective
+- **Read the validation result in the PR body first.** If the data is provably correct (objective
   criteria all pass), your review can focus on code quality and safety rather than
   correctness.
 - **Check `_issues.md`** — this contains things the peer-reviewer flagged as suggestions

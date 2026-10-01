@@ -2,8 +2,9 @@
 
 A spec-driven dbt development workflow for agentic IDEs, shipped as a
 [Cortex](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code) plugin. It
-enforces: **discover & fact-check → specify → design → implement → validate output →
-review → ship**, with mandatory engineering rules and context-isolated sub-agents.
+runs: **discover → specify → implement → validate output → review → ship**, with process
+that scales to the change (light or full route), mandatory engineering rules, and
+sub-agents where independence helps (output validation, review, CI).
 
 This plugin is **Cortex-only**. There is no adapter layer for other IDEs.
 
@@ -13,11 +14,11 @@ This plugin is **Cortex-only**. There is no adapter layer for other IDEs.
 |-----------|---------|
 | `AGENTS.example.md` | The mandatory, blocking engineering rules + a **Project Profile** (the only team-specific block). Copy to your dbt repo root as `AGENTS.md` and edit the Profile. |
 | `skills/spec-driven/` | The single workflow skill. Routes by intent (feature / bug / refactor / standalone review / standalone docs) and orchestrates the gated phases. |
-| `agents/` | Sub-agents: `discovery`, `spec-author`, `test-author`, `output-validator`, `peer-reviewer`, `ci-interpreter`, plus `semantic-view-author` / `quality-auditor`. |
+| `agents/` | Sub-agents: `output-validator`, `peer-reviewer`, `ci-interpreter`, `spec-author` (full route only), plus `semantic-view-author` / `quality-auditor` / `dbt-cloud-parser`. |
 | `skills/ci-failure-responder/` | Responds to dbt Cloud job failures: creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. |
 | `skills/{spec-review,spec-debt,verify-this,ci-loop,quality-audit,pr-ergonomics,work-summary}/` | Optional side doors. Never injected into a one-line bug. |
 | `automations/ci-failure/` | Cloud automation config, prompt, runner, and setup guide for the CI failure responder. See [`set_up.md`](./automations/ci-failure/set_up.md). |
-| `hooks/hooks.json` | Advisory reminders **and** a blocking `PreToolUse` lock (`scripts/hooks/require-delegation.js`). Dual bash + PowerShell for the advisory hooks. |
+| `hooks/hooks.json` | Context loading only: injects `AGENTS.md` and the context ledger at session start, and appends changed files to `.cortex/notes/session-log.md` at session end. Dual bash + PowerShell. |
 
 ### Design principle
 
@@ -46,7 +47,6 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 ## Requirements
 
 - Cortex Code / Cortex Desktop. Cortex-only — no Cursor/other-IDE adapter.
-- `node` on PATH (the blocking hook is a Node script).
 - `git` and the GitHub CLI (`gh`, authenticated) for the Ship phase.
 - `jq` on PATH for the hooks **on macOS/Linux** (the POSIX hook variants use it; the
   Windows/PowerShell variants use built-in cmdlets and need no `jq`).
@@ -73,33 +73,31 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 
 ## The workflow
 
-1. **Discover & Fact-Check** (mandatory first gate) — grill-with-docs into `grill-notes.md`,
-   then `discovery` verifies/disproves assumptions. Depth follows the route (a one-line
-   bug is 1–3 questions, not a design interview).
-2. **Specify** — `spec-author` writes `requirements.md` (EARS `REQ-xxx` + tagged `VAL-xxx`).
-3. **Design** — `spec-author` writes `design.md` on feature/semantic-view (and refactor if
-   structure changes). Bugs skip Design unless a structural choice is recorded.
-4. **Implement** — code that satisfies `AGENTS.md`; tests via `test-author` at a named seam.
-5. **Validate Output** — `output-validator` writes `validation-report.md`. Hash/CLONE on
-   refactors; Looker reconciliation when a VAL names it.
-6. **Review** — `peer-reviewer` on two axes: Standards vs Spec.
-7. **Ship** — commit, push, open PR, interpret CI via `ci-interpreter`. The ship-gate
-   refuses push/PR if a named agent never ran.
+1. **Discover** — read the code, lineage, ADRs and the nearest existing implementation of
+   the same kind of change; confirm or disprove the ticket's assumptions with evidence.
+   Then pick the **light** or **full** route.
+2. **Specify / design** — `REQ-xxx` + tagged `VAL-xxx`. Light route: in the PR body and
+   ticket, no spec files. Full route (new models, grain changes, cross-domain joins,
+   semantic views, ADR territory, real design trade-offs): `spec-author` writes
+   `requirements.md` and `design.md`.
+3. **Implement** — code and tests that satisfy `AGENTS.md`.
+4. **Validate output** — `output-validator` checks the data against the baseline and
+   returns a report (not committed). Fingerprint/CLONE on refactors; Looker
+   reconciliation when a VAL names it.
+5. **Review** — `peer-reviewer` on two axes: Standards vs Spec.
+6. **Ship** — commit, push, open PR, interpret CI via `ci-interpreter`, answer automated
+   review comments.
 
-A one-line bug does **not** run the feature interview. Capability skills stay optional.
+### Why there's so little enforcement
 
-### Why the hooks now refuse work
-
-Advisory hooks used to only leave a reminder. `SubagentStop` never fires if the agent
-was never started — so partial delegation was invisible. This plugin now refuses two
-tool calls:
-
-- writing `models/**/*.sql` before Discover is done
-- `git push` / `gh pr create` if a named agent never ran
-
-Escape: `DBT_SPEC_DRIVEN_ENFORCE=off`. The hook fails open if it cannot parse state.
-Specs are still two files (`requirements.md` + `design.md`). Interview notes go in
-`grill-notes.md`. Durable terms go in the Profile **context ledger** in the dbt repo.
+Earlier versions had a hook-based lock (write-gate, ship-gate, a hash ledger of sub-agent
+output), grill notes, a discovery sub-agent and a test-author sub-agent. They were built
+for models that dropped steps on long tasks. Current models (Opus 5.5 and later) carry
+long multi-step work without that, and the scaffolding was costing time and tokens
+without catching the mistakes that actually happened — which were convention misses
+(file layout, widened decisions, committed working files). The skill now targets those
+directly: read the precedent first, carry decisions verbatim, check `git status` before
+committing. Durable terms still go in the Profile **context ledger** in the dbt repo.
 
 ## CI Failure Auto-Fix (on-the-loop)
 
@@ -110,7 +108,7 @@ Cloud job failures. When a scheduled job (daily, 30-min, hourly) fails, it:
 2. Classifies it: `code_test` (auto-fixable), `data`, or `infra` (human-required).
 3. Creates a Jira bug ticket (project `DATA`, type `Bug`) with structured error details.
 4. For `code_test` failures: invokes the `spec-driven` bug-fix workflow in **scheduled
-   mode** (on-the-loop) — fully autonomous with retry protocol and hard-stop safety.
+   mode** (on-the-loop) — fully autonomous, stopping after three attempts on the same problem.
 
 ### Setup
 
@@ -163,7 +161,7 @@ Cloud job failures. When a scheduled job (daily, 30-min, hourly) fails, it:
 | Scenario | Result |
 |----------|--------|
 | `code_test` failure, fix succeeds | PR opened, Jira ticket updated with link, transitioned to "Peer Review" |
-| `code_test` failure, fix blocked (3 retries exhausted) | Jira ticket updated with retry log, transitioned to "Up Next" for human pickup |
+| `code_test` failure, fix blocked (3 attempts on the same problem) | Jira ticket updated with what was tried, transitioned to "Up Next" for human pickup |
 | `data` or `infra` failure | Jira ticket created for triage, no auto-fix attempted |
 
 ### Requirements (additional)

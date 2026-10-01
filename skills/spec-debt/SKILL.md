@@ -15,8 +15,8 @@ Look for debt in these places. `<specs>` and `<models>` are the **specs location
 **models location** named in the AGENTS.md Project Profile (examples: `dbt/specs/`,
 `dbt/models/`).
 
-- `<specs>/**/workflow-state.md` rows that are incomplete, skipped, missing gates, or
-  marked `blocked`.
+- Tickets labelled `on-the-loop` that were stopped for a decision, and `TODO(<ticket>)`
+  notes left on branches.
 - `<models>/**/*_issues.md` review items that remain unimplemented.
 - This plugin's `skills/spec-driven/references/field-feedback.md` entries whose plugin
   actions imply future hardening. This file lives in the plugin, not the dbt repo.

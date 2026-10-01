@@ -1,13 +1,13 @@
 # Scheduled Mode Reference
 
-This document provides detailed semantics for running the spec-driven workflow in
-scheduled (autonomous) mode — invoked from cron jobs, CI pipelines, or other automation.
+How the spec-driven workflow behaves when it runs unattended — from an automation, cron
+job, or CI trigger.
 
 ---
 
-## Invoking Scheduled Mode
+## Invoking
 
-Include `mode: scheduled` in the prompt when invoking the skill:
+Include `mode: scheduled` in the opening prompt:
 
 ```
 Run the spec-driven workflow in mode: scheduled.
@@ -15,139 +15,85 @@ Ticket: DATA-456
 Intent: Fix the NULL order_ids appearing in the patient_orders mart.
 ```
 
-The skill detects the mode from the prompt text. If `mode: scheduled` is not present,
-interactive mode (with human gates) is assumed.
+Without it, interactive mode (human gates) is assumed.
 
 ---
 
-## What Changes in Scheduled Mode
+## What changes
 
 | Aspect | Interactive | Scheduled |
 |--------|-------------|-----------|
-| Gates | `ask_user_question` → human approves | Self-checkpoint → auto-approve if complete |
-| Sub-agent delegation | Mandatory | Mandatory (unchanged) |
-| Artifacts | Required | Required (unchanged) |
-| workflow-state.md (incl. Evidence column) | Required | Required (unchanged) |
-| Failure handling | Present to user | Retry Protocol (3× per problem) |
-| CI waiting | Human may check in | Single blocking `--watch` call, 30-min timeout — never poll |
-| Subjective validation | Human sign-off | HARD STOP (not attempted) |
-| PR merge | Never auto-merge | Never auto-merge (unchanged) |
+| Gates | `ask_user_question` | None — keep working while the work can advance |
+| Phases, sub-agents, `AGENTS.md` rules | As per route | Unchanged |
+| Missing decision | Ask the user | Comment on the ticket, leave `TODO(<ticket>)` notes, push the branch, stop |
+| Subjective validation criteria | Human sign-off | Report and stop before Ship |
+| Repeated failure | Discuss with user | Stop after three attempts on the same problem |
+| CI waiting | Human may check in | One blocking `--watch` call with a timeout — don't poll |
+| PR merge | Never | Never |
 
 ---
 
-## Retry Protocol Detail
+## Keep going
 
-### What Counts as "Same Problem"
+An unattended run should not stop just to report. Don't end a turn with a summary that
+announces the next step, an offer to continue, or a list of decisions that don't block
+anything. Put status notes alongside the next action and carry on.
 
-The retry counter tracks unique problems by their identifying signature:
+Stop only when nothing can move without a person:
 
-| Problem Type | Identity Key | Example |
-|---|---|---|
-| Build error | Error message (first line) | `Compilation Error in model stg_orders` |
-| Test failure | Test name | `not_null_orders__order_id` |
-| Peer-reviewer issue | Issue ID or description hash | `[HIGH] Missing primary key test on order_sk` |
-| CI failure | Check name + error type | `dbt_test / unique_test_order_sk` |
+- A decision the ticket doesn't settle would change what gets built.
+- Validation has Subjective criteria.
+- The same problem has survived three fix attempts.
+- CI fails for data or infrastructure reasons (including failures also present on the
+  base branch).
 
-### Progress vs Stuck
-
-- **Progress**: the original problem is fixed but a *new, different* error appears.
-  This means the fix worked but revealed the next issue. The new error gets its own
-  3 attempts.
-- **Stuck**: the *same* error recurs after an attempted fix. The counter increments.
-  After 3 stuck attempts → HARD STOP.
-
-### Retry Log Format
-
-Appended to `workflow-state.md`:
-
-```markdown
-## Retry Log
-
-| Attempt | Phase | Problem | Action Taken | Result |
-|---------|-------|---------|--------------|--------|
-| 1 | Implement | `unique_test_order_sk` failed | Added dedup QUALIFY clause | Same error (attempt 2) |
-| 2 | Implement | `unique_test_order_sk` failed | Changed partition key to include source_id | Same error (attempt 3) |
-| 3 | Implement | `unique_test_order_sk` failed | Rewrote join to prevent fan-out | Same error — HARD STOP |
-```
+When stopping, say what was done, what's blocked, and what's needed — on the ticket and
+in the final message.
 
 ---
 
-## Hard-Stop Behavior
+## Repeated failures
 
-When the agent hard-stops:
-
-1. Sets the current phase status to `blocked` in `workflow-state.md`.
-2. Writes the retry log showing all attempts.
-3. Does NOT proceed to subsequent phases.
-4. Does NOT open a PR or push code.
-5. Terminates the workflow cleanly.
-
-The resulting `workflow-state.md` serves as the in-session diagnostic for the agent (or
-for a human inspecting the working directory before cleanup).
+"Same problem" means the same failing test, the same build error, or the same
+peer-review issue after a fix. A different failure means the previous fix worked; it
+gets its own three attempts. No retry log file is needed — report the attempts in the
+final message (and on the ticket if stopping).
 
 ---
 
-## Appropriate Workflow Types for Scheduling
+## Good candidates
 
-| Workflow | Suitability | Reason |
-|----------|-------------|--------|
-| Bug Fix (with ground truth) | Good | Validation is Objective — agent can self-validate |
-| Refactor (behavior-preserving) | Good | Before/after comparison is Objective |
-| Feature (all-Objective VAL criteria) | Acceptable | Rare, but possible for data-pipeline features |
-| Feature (mixed/Subjective criteria) | Not suitable | Will HARD STOP at output-validator |
-
----
-
-## Hook Enforcement
-
-Scheduled mode is reinforced by hooks that fire automatically:
-
-| Hook | When | What it injects |
-|------|------|-----------------|
-| `SubagentStop` | After every sub-agent returns | Gate reminder: "verify transition checklist, auto-approve or retry" |
-| `PreCompact` | Before context summarization | State audit: counts pending/in-progress phases, blocks if `blocked` |
-| `Stop` | When agent is about to terminate | Warning if phases are incomplete |
-
-These hooks inject system messages that the agent cannot skip. They provide structural
-enforcement that persists even if the agent's context window is summarized mid-workflow.
+| Work | Suitability | Why |
+|------|-------------|-----|
+| Bug fix with a known correct value | Good | Objective validation |
+| Behaviour-preserving refactor | Good | Output must match the baseline |
+| Light-route feature following an existing pattern | Good | Objective criteria are usually available |
+| Feature with Subjective criteria | Poor | Will stop at validation |
+| Full-route feature with open design choices | Poor | Will stop for a decision |
 
 ---
 
-## Example: Successful Scheduled Bug Fix
+## Example: scheduled bug fix
 
 ```
-Prompt: "Run the spec-driven workflow in mode: scheduled. Ticket: DATA-789. Fix: stg_orders
-is producing duplicate rows due to missing dedup on the source refresh timestamp."
+Prompt: "Run the spec-driven workflow in mode: scheduled. Ticket: DATA-789.
+Fix: stg_orders produces duplicate rows due to missing dedup on the refresh timestamp."
 
-→ discovery sub-agent runs, returns findings
-→ SubagentStop hook injects gate reminder
-→ Agent verifies checklist: findings presented ✓, workflow-state.md updated ✓
-→ Logs: auto-approved (scheduled)
-→ Specify+Implement phase: writes requirements.md, implements fix, delegates test-author
-→ SubagentStop hook injects gate reminder
-→ output-validator runs, returns Self-validatable: YES (all Objective, all pass)
-→ Auto-proceeds to Review
-→ peer-reviewer runs, returns 0 High issues, 1 Low suggestion
-→ Logs suggestion to _issues.md
-→ Ships: commits, pushes, opens PR
-→ ci-interpreter returns PASS
-→ Workflow complete. PR ready for human merge.
+→ Discover: reads stg_orders and its source, writes the failing query (412 dup keys),
+  finds the sibling stg_ model that already dedups the same way → light route
+→ Plan: REQ-001 no duplicate order_id; VAL-001 dup count = 0 (Objective); added to ticket
+→ Implement: adds QUALIFY dedup with comment; unique test on order_id; build + test pass
+→ output-validator: Self-validatable YES, 412 rows removed, all were duplicates
+→ peer-reviewer: no High/Medium; one Low logged to _issues.md
+→ Ship: commit, push, PR with REQ/VAL + validation summary; ci-interpreter PASS;
+  CodeRabbit replies posted; ticket moved to review
 ```
 
----
-
-## Example: Hard-Stop After Retries
+## Example: stopping for a decision
 
 ```
-Prompt: "Run the spec-driven workflow in mode: scheduled. Ticket: DATA-790. Fix: int_orders
-is missing rows where payment_method is NULL."
-
-→ discovery + gate: auto-approved
-→ Specify+Implement: fix applied, test-author delegated
-→ output-validator: unique_test fails (same SK generated for different rows)
-→ Retry 1: adjust SK columns → same test fails
-→ Retry 2: add payment_method to SK → same test fails
-→ Retry 3: rewrite SK logic entirely → same test fails
-→ HARD STOP. workflow-state.md marked blocked.
-→ Agent terminates. PR not opened.
+→ Discover finds the ticket's "new patients only" could mean first order after exposure,
+  or account created after exposure — the two give different populations
+→ Comments on the ticket with both definitions and their row counts
+→ Leaves TODO(DATA-790) at the filter, pushes the branch, stops
 ```

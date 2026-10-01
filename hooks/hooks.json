@@ -1,18 +1,5 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "write|edit|multi_edit|Write|Edit|MultiEdit|bash|Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "PLUGIN_HOME=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; if [ -z \"$PLUGIN_HOME\" ]; then   if [ -f scripts/hooks/require-delegation.js ]; then PLUGIN_HOME=\"$PWD\";   elif [ -f \"$(dirname \"$0\")/../scripts/hooks/require-delegation.js\" ]; then PLUGIN_HOME=\"$(cd \"$(dirname \"$0\")/..\" && pwd)\";   fi; fi; node \"$PLUGIN_HOME/scripts/hooks/require-delegation.js\"",
-            "timeout": 10,
-            "statusMessage": "Checking workflow delegation"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
@@ -47,74 +34,18 @@
         ]
       }
     ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "files=$(for r in dbt/specs specs; do [ -d \"$r\" ] && find \"$r\" -mindepth 2 -maxdepth 2 -name workflow-state.md; done 2>/dev/null); state=\"\"; if [ -n \"$files\" ]; then state=$(printf '%s\\n' \"$files\" | tr '\\n' '\\0' | xargs -0 ls -t 2>/dev/null | head -1); fi; if [ -n \"$state\" ]; then blocked=$(grep -c '| blocked' \"$state\" 2>/dev/null || true); if [ \"$blocked\" -gt 0 ]; then printf '{\"additionalContext\":\"HARD STOP: %s shows a BLOCKED phase. The workflow has failed after max retries. Do NOT continue. Terminate and report the blocked state.\"}' \"$state\"; else printf '{\"additionalContext\":\"SUB-AGENT COMPLETED. You are now at a GATE. MANDATORY next steps: (1) Update %s to mark this phase complete and the sub-agent as delegated. (2) Verify ALL TRANSITION checklist items for this phase are satisfied. (3) In interactive mode: use ask_user_question for approval. In scheduled mode: auto-approve ONLY if all checklist items pass; otherwise enter the Retry Protocol. Do NOT skip ahead without completing the gate.\"}' \"$state\"; fi; else printf '{\"additionalContext\":\"Sub-agent completed. If a workflow is active, ensure workflow-state.md exists in the active spec directory and is updated before proceeding.\"}'; fi",
-            "timeout": 10,
-            "statusMessage": "Checking workflow gate",
-            "enabled": true
-          },
-          {
-            "type": "command",
-            "command": "$state = @('dbt/specs','specs') | Where-Object { Test-Path $_ } | ForEach-Object { Get-ChildItem -Path $_ -Directory -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName 'workflow-state.md' } } | Where-Object { Test-Path $_ } | Get-Item | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName; if ($state) { $blocked = (Select-String -Path $state -Pattern '\\| blocked' -Quiet); if ($blocked) { Write-Output \"{`\"additionalContext`\":`\"HARD STOP: $state shows a BLOCKED phase. The workflow has failed after max retries. Do NOT continue. Terminate and report the blocked state.`\"}\" } else { Write-Output \"{`\"additionalContext`\":`\"SUB-AGENT COMPLETED. You are now at a GATE. MANDATORY next steps: (1) Update $state to mark this phase complete and the sub-agent as delegated. (2) Verify ALL TRANSITION checklist items for this phase are satisfied. (3) In interactive mode: use ask_user_question for approval. In scheduled mode: auto-approve ONLY if all checklist items pass; otherwise enter the Retry Protocol. Do NOT skip ahead without completing the gate.`\"}\" } } else { Write-Output '{\"additionalContext\":\"Sub-agent completed. If a workflow is active, ensure workflow-state.md exists in the active spec directory and is updated before proceeding.\"}' }",
-            "timeout": 10,
-            "statusMessage": "Checking workflow gate",
-            "enabled": true
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "files=$(for r in dbt/specs specs; do [ -d \"$r\" ] && find \"$r\" -mindepth 2 -maxdepth 2 -name workflow-state.md; done 2>/dev/null); state=\"\"; if [ -n \"$files\" ]; then state=$(printf '%s\\n' \"$files\" | tr '\\n' '\\0' | xargs -0 ls -t 2>/dev/null | head -1); fi; if [ -n \"$state\" ]; then blocked=$(grep -c '| blocked' \"$state\" 2>/dev/null || true); pending=$(grep -c '| pending' \"$state\" 2>/dev/null || true); inprog=$(grep -c '| in-progress' \"$state\" 2>/dev/null || true); if [ \"$blocked\" -gt 0 ]; then printf '{\"systemMessage\":\"HARD STOP: %s shows BLOCKED status. Do NOT continue past this phase. The workflow has failed after max retries. Terminate and report.\"}' \"$state\"; else printf '{\"systemMessage\":\"WORKFLOW STATE AUDIT (pre-compaction): %s phases pending, %s in-progress in %s. Before continuing after compaction: (1) Read that file to determine your current phase. (2) Complete the current phase TRANSITION checklist before moving on. (3) All sub-agent delegations and gates must be satisfied per the skill instructions. (4) In scheduled mode: gates auto-approve only when ALL checklist items pass.\"}' \"$pending\" \"$inprog\" \"$state\"; fi; else printf '{\"systemMessage\":\"Context is about to compact. Ensure the active spec (requirements.md / design.md / grill-notes.md), the context ledger, and any _issues.md capture in-progress decisions before they are summarized. If a workflow is active, create workflow-state.md per the Workflow State Tracker section.\"}'; fi",
-            "timeout": 10,
-            "enabled": true
-          },
-          {
-            "type": "command",
-            "command": "$state = @('dbt/specs','specs') | Where-Object { Test-Path $_ } | ForEach-Object { Get-ChildItem -Path $_ -Directory -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName 'workflow-state.md' } } | Where-Object { Test-Path $_ } | Get-Item | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName; if ($state) { $content = Get-Content -Raw $state; $blocked = ($content -match '\\| blocked'); $pending = ([regex]::Matches($content, '\\| pending')).Count; $inprog = ([regex]::Matches($content, '\\| in-progress')).Count; if ($blocked) { Write-Output \"{`\"systemMessage`\":`\"HARD STOP: $state shows BLOCKED status. Do NOT continue past this phase. Terminate and report.`\"}\" } else { Write-Output \"{`\"systemMessage`\":`\"WORKFLOW STATE AUDIT (pre-compaction): $pending phases pending, $inprog in-progress in $state. Read that file after compaction to determine the current phase. Complete all TRANSITION checklist items before proceeding. In scheduled mode: gates auto-approve only when ALL checklist items pass.`\"}\" } } else { Write-Output '{\"systemMessage\":\"Context is about to compact. Ensure the active spec (requirements.md / design.md / grill-notes.md), the context ledger, and any _issues.md capture in-progress decisions. If a workflow is active, create workflow-state.md per the Workflow State Tracker section.\"}' }",
-            "timeout": 10,
-            "enabled": true
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "files=$(for r in dbt/specs specs; do [ -d \"$r\" ] && find \"$r\" -mindepth 2 -maxdepth 2 -name workflow-state.md; done 2>/dev/null); state=\"\"; if [ -n \"$files\" ]; then state=$(printf '%s\\n' \"$files\" | tr '\\n' '\\0' | xargs -0 ls -t 2>/dev/null | head -1); fi; if [ -n \"$state\" ]; then blocked=$(grep -c '| blocked' \"$state\" 2>/dev/null || true); incomplete=$(grep -c -E '\\| (pending|in-progress)' \"$state\" 2>/dev/null || true); if [ \"$blocked\" -gt 0 ]; then printf '{\"additionalContext\":\"WORKFLOW BLOCKED: %s records a blocked phase. The workflow terminated without completing. Review the Retry Log before re-running.\"}' \"$state\"; elif [ \"$incomplete\" -gt 0 ]; then printf '{\"additionalContext\":\"WARNING: Agent is stopping with %s incomplete phases in %s. If this is a scheduled run, the workflow did not complete successfully.\"}' \"$incomplete\" \"$state\"; fi; fi",
-            "timeout": 10,
-            "enabled": true
-          },
-          {
-            "type": "command",
-            "command": "$state = @('dbt/specs','specs') | Where-Object { Test-Path $_ } | ForEach-Object { Get-ChildItem -Path $_ -Directory -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName 'workflow-state.md' } } | Where-Object { Test-Path $_ } | Get-Item | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName; if ($state) { $content = Get-Content -Raw $state; $blocked = ($content -match '\\| blocked'); $incomplete = ([regex]::Matches($content, '\\| (pending|in-progress)')).Count; if ($blocked) { Write-Output \"{`\"additionalContext`\":`\"WORKFLOW BLOCKED: $state records a blocked phase. The workflow terminated without completing. Review the Retry Log before re-running.`\"}\" } elseif ($incomplete -gt 0) { Write-Output \"{`\"additionalContext`\":`\"WARNING: Agent stopping with $incomplete incomplete phases in $state.`\"}\" } }",
-            "timeout": 10,
-            "enabled": true
-          }
-        ]
-      }
-    ],
     "SessionEnd": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && files=$(git diff --name-only 2>/dev/null) && { test -n \"$files\" && mkdir -p .cortex/notes && { printf '\\n## %s \u2014 %s\\n' \"$(date +%Y-%m-%d_%H:%M)\" \"$branch\"; printf '%s\\n' \"$files\" | sed 's/^/- /'; } >> \".cortex/notes/session-log.md\"; } || true",
+            "command": "branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && files=$(git diff --name-only 2>/dev/null) && { test -n \"$files\" && mkdir -p .cortex/notes && { printf '\\n## %s — %s\\n' \"$(date +%Y-%m-%d_%H:%M)\" \"$branch\"; printf '%s\\n' \"$files\" | sed 's/^/- /'; } >> \".cortex/notes/session-log.md\"; } || true",
             "timeout": 15,
             "enabled": true
           },
           {
             "type": "command",
-            "command": "$b = (git rev-parse --abbrev-ref HEAD 2>$null); $f = (git diff --name-only 2>$null); if ($f) { New-Item -ItemType Directory -Force -Path .cortex/notes | Out-Null; \"`n## $(Get-Date -Format 'yyyy-MM-dd_HH:mm') \u2014 $b\" | Add-Content -Path .cortex/notes/session-log.md; ($f | ForEach-Object { \"- $_\" }) | Add-Content -Path .cortex/notes/session-log.md }",
+            "command": "$b = (git rev-parse --abbrev-ref HEAD 2>$null); $f = (git diff --name-only 2>$null); if ($f) { New-Item -ItemType Directory -Force -Path .cortex/notes | Out-Null; \"`n## $(Get-Date -Format 'yyyy-MM-dd_HH:mm') — $b\" | Add-Content -Path .cortex/notes/session-log.md; ($f | ForEach-Object { \"- $_\" }) | Add-Content -Path .cortex/notes/session-log.md }",
             "timeout": 15,
             "enabled": true
           }

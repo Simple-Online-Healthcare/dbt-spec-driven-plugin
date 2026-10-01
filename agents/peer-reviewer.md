@@ -44,8 +44,8 @@ For each changed model, evaluate and flag where relevant:
       singular tests that re-derive the model's logic; unit-test `expect` rows that match
       the model's output but not the requirement text; `where:` filters that exclude the
       violating rows. Fix = rewrite from the requirement, not delete.
-    - **No falsification → High.** Every non-structural test must appear in test-author's
-      Falsification log with a method and "failed as expected". **Re-run at least one
+    - **No falsification → High.** Every non-structural test must appear in the PR body's
+      falsification record with a method and "failed as expected". **Re-run at least one
       claimed falsification yourself** (apply the mutation or injected row, confirm it
       fails, revert). If it passes, the test is tautological → High.
     - **Requirement uncovered → High.** A `REQ-xxx` with no test and no Gap entry. Only
@@ -71,7 +71,8 @@ For each changed model, evaluate and flag where relevant:
     where `dbt_utils.union_relations` applies, and any SQL written below a higher §13
     rung that applied. Name the unused macro.
 14. **Unverified claims.** Flag assertions about coverage, grain, or "output identical"
-    that are not backed by a query, hash MATCH, or Validation Report evidence.
+    that are not backed by a query, fingerprint MATCH, or Validation Report evidence. Flag any data criterion marked
+    PASS from SQL inspection alone.
 
 ## Constraints
 
