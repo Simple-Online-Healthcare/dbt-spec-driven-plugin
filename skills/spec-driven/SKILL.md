@@ -193,13 +193,17 @@ The report is working material. **Do not commit it.** Summarise the result in th
 ## Phase: Review
 
 Delegate to `peer-reviewer` on the branch's changed models, passing the Validation
-Report summary. It returns High/Medium/Low issues and suggestions.
+Report summary. It returns High/Medium/Low issues, suggestions, and an advisory
+**Architecture** section (new concerns in the diff only; pre-existing debt is Context).
 
 - Interactive: walk High and Medium issues with the user, offering a specific fix for
-  each. The user may decline.
-- Log every item not implemented — including declined Highs, with their severity — to
-  `dbt/models/<folder>/<model>_issues.md` (append if it exists). `_issues.md` is open
-  debt only, not a changelog.
+  each. The user may decline. Architecture findings are advisory — raise them, do not
+  treat them as blockers.
+- Log every item not implemented — including declined Highs, with their severity, and
+  any Architecture "Introduced" items not acted on — to
+  `dbt/models/<folder>/<model>_issues.md` (append if it exists). For plugin-only
+  changes, use the nearest changed-path `_issues.md` or skip if there is no models
+  tree. `_issues.md` is open debt only, not a changelog.
 
 ---
 

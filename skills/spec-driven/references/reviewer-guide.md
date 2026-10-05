@@ -14,7 +14,7 @@ AI-generated PRs include artifacts that human PRs typically don't:
 | **Requirements** (`REQ`/`VAL`) | PR body (light route) or `dbt/specs/<date>-<name>/requirements.md` (full route) | What the agent worked against |
 | **Design** (`design.md`) | Spec directory, full route only | Technical approach and trade-offs |
 | **Validation summary** | PR body | Data correctness evidence from `output-validator` |
-| **Issues log** (`_issues.md`) | `dbt/models/<folder>/` | Unimplemented peer-review suggestions |
+| **Issues log** (`_issues.md`) | `dbt/models/<folder>/`; plugin-only: nearest changed-path `_issues.md`, or skip if there is no models tree | Unimplemented peer-review suggestions and unacted-on Introduced architecture findings (not Context) |
 | **Verbose commit messages** | Git log | Reference ticket ID and REQ numbers |
 
 ---
@@ -133,5 +133,10 @@ time, flag it in the team channel so someone else picks it up.
 - **Don't over-review.** The agent already ran through AGENTS.md compliance, SQLFluff, and
   a peer-review sub-agent. Your job is the human judgment layer: "Is this actually right
   and safe?" — not re-running every mechanical check.
+- **Architecture section is advisory.** It flags only what this PR introduced
+  (duplicate, unused helper, wrong layer/repo, extra abstraction, missing impact).
+  **Context** rows are pre-existing debt — do not reject the PR for those unless the
+  change made them worse. Only unacted-on **Introduced** items are logged to
+  `_issues.md`; raise a Context item in your review if you want it followed up.
 - **Feedback loops matter.** If you notice a pattern in agent mistakes, raise it so we can
   adjust the workflow or rules. This process improves with feedback.

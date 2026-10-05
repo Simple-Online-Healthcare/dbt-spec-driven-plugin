@@ -63,18 +63,42 @@ For each changed model, evaluate and flag where relevant:
 12. **Data-change context** — read the `output-validator`'s data-delta findings (row
     counts, PK uniqueness, null rates, metric shifts). Do not recompute them; flag only
     *code* that plausibly explains an unexplained or risky shift the report surfaced.
-12. **Standards vs Spec.** Review on two axes and keep them separate:
+13. **Standards vs Spec.** Review on two axes and keep them separate:
     - **Standards** — `AGENTS.md` plus local structure (layer, reuse, comments). Do not
       re-litigate already-blocking rule failures; flag new ones you can see in the diff.
     - **Spec** — does the change satisfy the `REQ-xxx` / `VAL-xxx` in `requirements.md`?
       On a one-line bug this is just "does this match the one VAL". On a feature, check
       every VAL. If the spec is missing, say so; do not invent one.
-13. **Solution ladder.** Flag `source()` outside the first layer, hand-rolled unions
+14. **Solution ladder.** Flag `source()` outside the first layer, hand-rolled unions
     where `dbt_utils.union_relations` applies, and any SQL written below a higher §13
-    rung that applied. Name the unused macro.
-14. **Unverified claims.** Flag assertions about coverage, grain, or "output identical"
+    rung that applied. Treat these as blocking §13 findings, not Architecture findings;
+    do not duplicate or reclassify them as advisory or Context. Name the unused macro.
+15. **Unverified claims.** Flag assertions about coverage, grain, or "output identical"
     that are not backed by a query, fingerprint MATCH, or Validation Report evidence. Flag any data criterion marked
     PASS from SQL inspection alone.
+16. **Architecture (change-aware, advisory).** Inspect the ticket/PR **diff** only.
+    Flag a concern when *this change introduces it*. Pre-existing debt is
+    **Context**, never a required change, unless the PR worsens it. Do not invent a
+    search engine — compare changed files by name, purpose/description, and known
+    helpers or package macros.
+
+    Check these five, and only these:
+    - **Duplicate / near-duplicate** — a nearby model, macro, or utility already does this.
+    - **Existing package / macro** — a repo macro, dbt built-in, or installed package
+      already covers it, except for blocking §13 solution-ladder violations (those
+      stay on item 14). Name the unused helper.
+    - **Wrong layer or repository** — logic in the wrong dbt layer (Profile layers),
+      team-specific rules landing in this plugin (or generic workflow landing in a
+      consumer dbt repo), or dbt logic that belongs in a Profile **downstream consumer
+      repo** (Looker / semantic layer) or the reverse.
+    - **Unnecessary new abstraction or dependency** — a wrapper, extra package, or
+      new helper that does not buy reuse.
+    - **Missing impact** — the diff changes a grain, key, or public column without
+      saying who is downstream (dbt refs, Looker, semantic views).
+
+    Each finding cites the **changed file** and the **existing code or package**
+    that creates the concern. Architecture findings are advisory: they do not fail
+    the review on their own.
 
 ## Constraints
 
@@ -96,6 +120,15 @@ For each changed model, evaluate and flag where relevant:
 
 ## 💡 Suggestions
 - <non-blocking improvements>
+
+## Architecture
+### Introduced (advisory)
+- [duplicate | existing-helper | wrong-layer | wrong-repo | extra-abstraction | missing-impact]
+  `<changed-file>` vs `<existing code or package>` — <one line> → <recommended fix>
+### Context (pre-existing, do not treat as required)
+- <debt the reviewer noticed that this PR did not introduce or worsen>
+### Pass
+- <one line if nothing in the diff introduced an architecture concern>
 ```
 
 (The data-delta lives in the `output-validator`'s Validation Report — reference it, don't
@@ -103,4 +136,6 @@ duplicate it.)
 
 The calling workflow walks High/Medium issues with the user and logs **every**
 unimplemented issue (any severity, including High/Medium the user chose to skip) plus
-unimplemented Suggestions to `dbt/models/<folder>/<model_name>_issues.md`.
+unimplemented Suggestions and unused Architecture **Introduced** items to
+`dbt/models/<folder>/<model_name>_issues.md`. For plugin-only changes, use the
+nearest changed-path `_issues.md`, or skip if there is no models tree.
