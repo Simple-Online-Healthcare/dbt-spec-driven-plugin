@@ -76,7 +76,12 @@ For each changed model, evaluate and flag where relevant:
 15. **Unverified claims.** Flag assertions about coverage, grain, or "output identical"
     that are not backed by a query, fingerprint MATCH, or Validation Report evidence. Flag any data criterion marked
     PASS from SQL inspection alone.
-16. **Architecture (change-aware, advisory).** Inspect the ticket/PR **diff** only.
+16. **Semantic view staleness** — for each changed model, search for semantic view models
+    (`materialized = 'semantic_view'`) that `ref()` it. If a semantic view references a
+    changed model but was **not** modified in this diff, flag as **High (must fix):** the
+    semantic view may have stale columns, metrics, or relationships. Name the semantic view
+    file and the ref that ties them.
+17. **Architecture (change-aware, advisory).** Inspect the ticket/PR **diff** only.
     Flag a concern when *this change introduces it*. Pre-existing debt is
     **Context**, never a required change, unless the PR worsens it. Do not invent a
     search engine — compare changed files by name, purpose/description, and known

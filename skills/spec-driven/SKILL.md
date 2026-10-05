@@ -114,6 +114,9 @@ Find the facts before proposing anything.
   columns involved.
 - Note anything that will shape the design — coverage gaps, grain mismatches, a value
   living on a different entity than the ticket says. Raise these now, not at validation.
+- Check whether any model being changed is referenced by a semantic view (`ref('<model>')`
+  in a `materialized = 'semantic_view'` model). If so, note the semantic view as an
+  impacted dependency — it must be reviewed and potentially updated as part of this change.
 - If a fact you need is owned by someone else, stop that thread and ask; don't invent it.
 
 If discovery surfaces undocumented models the change depends on, run the
@@ -209,7 +212,8 @@ Report summary. It returns High/Medium/Low issues, suggestions, and an advisory
 
 ## Phase: Ship
 
-1. Confirm models build and tests pass locally. Don't push a known-red branch.
+1. Confirm models build and tests pass locally. Verify that all semantic views
+   referencing changed models have been reviewed or updated. Don't push a known-red branch.
 2. Stage only this change. Check `git status` before committing — no validation
    reports, no unrelated files from a stash or another branch.
 3. Commit with the ticket ID (`DATA-123: <summary>`), push, and open the PR from the
