@@ -15,7 +15,8 @@ Reusable across tickets:
 Do not capture:
 
 - Secrets, credentials, payment details, raw customer data, or personal identifiers.
-- Spec-local implementation detail (`REQ-xxx`, SQL shape). That stays in the active spec.
+- Spec-local implementation detail (SQL shape, one ticket's decisions). Those go in
+  decision comments and the PR body.
 - Unverified guesses stated as facts.
 
 ## Where Context Lives
@@ -23,8 +24,8 @@ Do not capture:
 | Kind | Where | Job |
 |------|-------|-----|
 | Durable glossary | the **context ledger** named in the AGENTS.md Project Profile (example: `docs/data-team-context.md` in the **dbt repo**) | Terms + verified constraints that outlive the ticket. |
-| Ticket spec | Light route: REQ/VAL in the PR body and ticket. Full route: `<spec-dir>/requirements.md` + `design.md` | Testable behaviour and design rationale. |
-| Session telemetry | the Profile's **local notes location** (example: `.cortex/notes/`) | Gitignored handoff. Not a team source of truth. |
+| Ticket plan | Ticket while working, PR body at ship | Decisions, Done-when checks, schema change. |
+| Decision rationale | `-- <ticket-id>:` comments next to the code; model YAML `description` for grain/purpose | Why the code is this way. Found where it's read. |
 | ADR | `docs/adr/` in the **dbt repo**, rare | Only if hard to reverse AND surprising AND a real trade-off. |
 
 `CONTEXT.md` does **not** live in this plugin. The plugin has no business domain.

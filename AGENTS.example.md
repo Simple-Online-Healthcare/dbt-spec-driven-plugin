@@ -36,17 +36,15 @@
 | Reusable-logic location | `/macros` |
 | Models location | `dbt/models/` (also where `<model>_issues.md` review ledgers are written) |
 | Lint config | `dbt/.sqlfluff` (SQLFluff) |
-| Specs location | `dbt/specs/` (spec dirs named `<dd-mm-yy>-<name>/`) |
 | Base branch | `master` |
 | Ticketing | Jira — update tickets via the `jira_update_issue` MCP tool |
 | CI system | dbt Cloud + Deep Hub; results surface as GitHub checks, polled via `gh` |
 | dbt Cloud API | Base URL `https://cloud.getdbt.com` (see [regional endpoints](agents/dbt-cloud-parser.md)), account ID `<your-account-id>`, secret `dbt_cloud_token` |
 | Data-diff tool | `audit_helper` (`compare_relations` / `compare_queries`) |
 | Output-validation baseline | production/main relations (diffed with the data-diff tool) |
-| Hash validation (refactors) | `HASH(*)` + `BIT_XOR_AGG`; clone baseline; exclude columns listed in spec's hash-exclude |
+| Hash validation (refactors) | `HASH(*)` + `BIT_XOR_AGG`; clone baseline; exclude columns listed as hash-exclude in the agreed plan |
 | PR template | `.github/pull_request_template.md` |
-| Context ledger | `docs/data-team-context.md` (durable glossary in the **dbt repo**, not this plugin) |
-| Local notes location | `.cortex/notes/` (gitignored session telemetry) |
+| Context ledger | `docs/data-team-context.md` (durable glossary in the **dbt repo**, not this plugin). Read it before planning any change. |
 | Downstream consumer repos | the BI/semantic-layer repo and any pipeline repo reading these models |
 | Handoff location | `docs/model-context-handoffs/` |
 | Max file size | ~1000 lines (structural review threshold) |
@@ -131,8 +129,8 @@ The full standard lives in the project's testing ADR (dbt-pipelines: ADR-007). S
 - **Test type.** Column contracts (PK, nulls, FK, enums) → YAML generic tests.
   Transformation logic → dbt `unit_tests:` with fixtures. Cross-row/cross-model
   invariants on real data → singular test at
-  `tests/models/<layer>/<domain>/assert_<model>__<invariant>.sql` with a `-- REQ-NNN`
-  header.
+  `tests/models/<layer>/<domain>/assert_<model>__<invariant>.sql` with a
+  `-- <ticket-id>: <invariant in plain English>` header.
 - **No tautological tests.** A test must be derived from the requirement or an upstream
   contract, not from the implementation. `not_null` on a `coalesce`d column,
   `accepted_values` copied from the model's own `case`, unit-test expectations generated
@@ -207,8 +205,8 @@ Before a PR can merge:
 - All tests pass.
 - Documentation is complete (§4).
 - SQL passes **SQLFluff** linting (config path in the Project Profile).
-- Outputs are validated against the spec's Validation Criteria — objective criteria pass,
-  and any subjective criteria have explicit human sign-off.
+- Outputs are validated against the agreed plan's Done-when checks — Objective checks
+  pass, and any Needs-human checks have explicit human sign-off.
 
 **Fail if:** any of the above is not met.
 
@@ -233,6 +231,13 @@ constructs whenever the choice is deliberate:
 - **Window dedup** — e.g. `QUALIFY row_number() = 1`: the partition/order rationale.
 - **`COALESCE` / NULL substitution** that changes downstream semantics.
 - **Intentional fan-out** (one-to-many joins that deliberately multiply rows).
+
+**Decision comments.** Where code is shaped by a decision made with the user (or accepted
+unattended in scheduled mode), the comment names the ticket and the rejected option:
+`-- DATA-123: <what was chosen>; not <alternative> because <reason>`. No date or branch:
+`git blame` gives the date and the commit links to the PR. Only line-local decisions go
+in code. Model-level decisions (grain, purpose) go in the model YAML `description`;
+scope goes in the PR body.
 
 **Fail if:** any construct above is present with deliberate-but-implicit intent and no
 explanatory comment. (The `peer-reviewer` judges whether the comment is *meaningful* —
@@ -271,7 +276,7 @@ misreads the original intent.*
 
 Before writing SQL, stop at the **first rung that holds** and use it. Do not descend a
 rung you have not ruled out. When a change adds more than a trivial amount of SQL, state
-in `design.md` which rung you landed on and why the ones above it did not apply.
+in the PR body which rung you landed on and why the ones above it did not apply.
 
 1. **Does this need to exist?** If existing models already satisfy the request, skip it.
 2. **Does an existing model already produce this?** `ref()` it.
@@ -287,7 +292,7 @@ in `design.md` which rung you landed on and why the ones above it did not apply.
 6. **Only then:** write the minimum SQL that satisfies the requirement.
 
 **Fail if:** SQL is written at a lower rung while a higher rung applied, or
-`design.md` does not say which rung was chosen when the change adds more than a
+the PR body does not say which rung was chosen when the change adds more than a
 trivial amount of SQL.
 
 **This rule never overrides a blocking rule above it.** Economising on SQL is not
@@ -306,10 +311,10 @@ column changes.*
 - Agents and contributors MUST consult the ADR index during discovery for any
   work that touches a domain with existing ADRs.
 - Design decisions that contradict an accepted ADR MUST either:
-  - Justify the deviation in the spec's `design.md`, OR
+  - Justify the deviation in the PR body, OR
   - Propose a new ADR that supersedes the existing one.
 - ADRs are immutable once Accepted. To change a decision, write a new ADR
   with status `Accepted` and update the old one's status to
   `Superseded by ADR-NNN`.
-- Feature-scoped decisions stay in the spec's `design.md`. Only decisions that
+- Feature-scoped decisions stay in decision comments and the PR body (§10). Only decisions that
   generalise across the project belong in the ADR registry.

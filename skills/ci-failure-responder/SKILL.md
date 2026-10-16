@@ -137,7 +137,7 @@ If classification is `code_test`:
      ```
 
 The `spec-driven` skill then runs its full bug-fix path autonomously:
-Discover → Specify+Implement → Validate Output → Review → Ship
+Discover → Decide → Build → Validate → Review → Ship
 
 ### 5. Report outcome
 

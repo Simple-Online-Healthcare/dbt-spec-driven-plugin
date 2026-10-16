@@ -29,7 +29,7 @@ workflow gates.
 3. Add or update reviewer guidance:
    - TL;DR matching the actual diff.
    - Core files vs generated/mechanical files.
-   - Risk areas, validation evidence, rollout notes, and spec links.
+   - Risk areas, validation evidence, rollout notes, and the agreed plan.
 4. Recommend splitting only when the PR is too large to make reviewable with notes.
 
 ### Collect PR Comments
@@ -50,9 +50,9 @@ workflow gates.
 ### Branch / PR Preparation
 
 1. Ensure the working tree is clean or explicitly handled.
-2. Confirm local health checks and spec artifacts.
+2. Confirm local health checks and that the agreed plan is in the PR body.
 3. Fill the Profile's PR template — typically description, motivation, checklist, change
-   type, the ticket ID from the Profile's **ticketing** system, validation, and spec links.
+   type, the ticket ID from the Profile's **ticketing** system, validation, and the agreed plan.
 
 ## Output
 

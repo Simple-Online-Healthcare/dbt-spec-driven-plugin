@@ -11,20 +11,22 @@ AI-generated PRs include artifacts that human PRs typically don't:
 
 | Artifact | Location | Purpose |
 |----------|----------|---------|
-| **Requirements** (`REQ`/`VAL`) | PR body (light route) or `dbt/specs/<date>-<name>/requirements.md` (full route) | What the agent worked against |
-| **Design** (`design.md`) | Spec directory, full route only | Technical approach and trade-offs |
+| **Agreed plan** | PR body (also on the ticket) | Decisions with their answers, Done-when checks, schema change |
+| **Decided unattended** | PR body, scheduled runs only | Recommendations the agent accepted with no human asked. Read these first |
+| **Decision comments** | `-- <ticket-id>:` next to the code they explain | Why a line is the way it is, and what was rejected |
 | **Validation summary** | PR body | Data correctness evidence from `output-validator` |
 | **Issues log** (`_issues.md`) | `dbt/models/<folder>/`; plugin-only: nearest changed-path `_issues.md`, or skip if there is no models tree | Unimplemented peer-review suggestions and unacted-on Introduced architecture findings (not Context) |
-| **Verbose commit messages** | Git log | Reference ticket ID and REQ numbers |
+| **Verbose commit messages** | Git log | Reference ticket ID |
 
 ---
 
 ## What to Check
 
-### 1. Does it match the spec?
+### 1. Does it match the plan?
 
-Read the REQ list (PR body or `requirements.md`). Every `REQ-xxx` should be addressed. If a requirement is
-missing from the implementation, reject.
+Read the agreed plan in the PR body. Every decision should be reflected in the code and
+every Done-when check should have a result. In scheduled runs, check each **Decided
+unattended** item is one you'd have chosen; if not, reject with the answer you want.
 
 ### 2. Do tests pass?
 
@@ -48,7 +50,7 @@ checked. But confirm the high-signal ones.
 
 ### 4. Is the logic correct?
 
-- Does the SQL do what the requirements say?
+- Does the SQL do what the plan says?
 - Are joins correct (type, keys, NULL handling)?
 - Are filters dropping the right rows?
 - Is the grain correct (no unintended fan-out or dedup)?
@@ -66,7 +68,7 @@ checked. But confirm the high-signal ones.
 All of these must be true:
 
 - [ ] CI checks pass (green).
-- [ ] Requirements are satisfied.
+- [ ] The plan's decisions and Done-when checks are satisfied.
 - [ ] Data validation is clean.
 - [ ] Code is correct and safe.
 - [ ] No AGENTS.md violations visible.
@@ -82,7 +84,7 @@ Reject if **any** of these apply:
 | Reason | How to communicate |
 |--------|-------------------|
 | Logic error (wrong join, bad filter, incorrect grain) | Comment on the specific line with what's wrong and what's expected |
-| Missing requirement (REQ not implemented) | Reference the REQ ID: "REQ-003 is not addressed" |
+| Plan not met, or a wrong unattended decision | Quote the decision or check: "Decided unattended: account creation is the wrong definition, use first order" |
 | AGENTS.md violation | Reference the section: "Violates §2 naming — should be `is_active` not `active_flag`" |
 | Test failure | "CI is red: [test name] fails. Fix before re-review." |
 | Safety concern | Explain the risk: "This LEFT JOIN could expose NULL patient_ids downstream" |
@@ -105,12 +107,12 @@ on `order_id` should be `patient_id` because the grain of this model is per-pati
 
 | Aspect | Human PR | AI PR |
 |--------|----------|-------|
-| Commit messages | Varies | Always references ticket + REQ IDs |
-| Spec artifacts | Sometimes present | Full route: `dbt/specs/<date>-<name>/`. Light route: REQ/VAL in the PR body |
+| Commit messages | Varies | Always references the ticket ID |
+| Plan | Sometimes in the ticket | Always in the PR body; no spec files in the repo |
 | Validation result | Rarely | Always — summarised in the PR body (the report itself isn't committed) |
 | Issues log | No | Yes — documents things the peer-reviewer flagged but didn't fix |
 | Code style | Personal style | Consistent with AGENTS.md + SQLFluff |
-| PR body | Varies | Structured: summary, requirements map, validation status |
+| PR body | Varies | Structured: summary, agreed plan, validation status |
 
 ---
 
@@ -126,7 +128,7 @@ time, flag it in the team channel so someone else picks it up.
 ## Tips
 
 - **Read the validation result in the PR body first.** If the data is provably correct (objective
-  criteria all pass), your review can focus on code quality and safety rather than
+  checks all pass), your review can focus on code quality and safety rather than
   correctness.
 - **Check `_issues.md`** — this contains things the peer-reviewer flagged as suggestions
   or low-priority items. If any concern you, raise them in your review.

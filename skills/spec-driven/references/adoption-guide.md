@@ -41,7 +41,7 @@ It is **not** "off the loop" (fully autonomous, no oversight). A human always:
 
 3. **The agent runs the spec-driven workflow:**
    - Discovers & fact-checks assumptions against the codebase.
-   - Writes a requirements spec (`requirements.md`).
+   - Settles open decisions (accepting its own recommendations, listed in the PR) and writes the plan to the ticket.
    - Implements the change (code + tests + docs).
    - Validates the output against objective criteria.
    - Runs a peer review (sub-agent).

@@ -2,9 +2,11 @@
 
 A spec-driven dbt development workflow for agentic IDEs, shipped as a
 [Cortex](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code) plugin. It
-runs: **discover → specify → implement → validate output → review → ship**, with process
-that scales to the change (light or full route), mandatory engineering rules, and
-sub-agents where independence helps (output validation, review, CI).
+runs: **discover → decide → build → validate → review → ship**. Open decisions are settled
+with you one question at a time, each with evidence and a recommendation. No spec files
+are written to the repo: the plan lives on the ticket and in the PR body, and decision
+rationale lives in comments next to the code. Sub-agents are used where independence
+helps (output validation, review, CI).
 
 This plugin is **Cortex-only**. There is no adapter layer for other IDEs.
 
@@ -13,12 +15,11 @@ This plugin is **Cortex-only**. There is no adapter layer for other IDEs.
 | Component | Purpose |
 |-----------|---------|
 | `AGENTS.example.md` | The mandatory, blocking engineering rules + a **Project Profile** (the only team-specific block). Copy to your dbt repo root as `AGENTS.md` and edit the Profile. |
-| `skills/spec-driven/` | The single workflow skill. Routes by intent (feature / bug / refactor / standalone review / standalone docs) and orchestrates the gated phases. |
-| `agents/` | Sub-agents: `output-validator`, `peer-reviewer`, `ci-interpreter`, `spec-author` (full route only), plus `semantic-view-author` / `quality-auditor` / `dbt-cloud-parser`. |
+| `skills/spec-driven/` | The single workflow skill. Routes by intent (feature / bug / refactor / standalone review / standalone docs) and runs the phases. |
+| `agents/` | Sub-agents: `output-validator`, `peer-reviewer`, `ci-interpreter`, plus `semantic-view-author` / `quality-auditor` / `dbt-cloud-parser`. |
 | `skills/ci-failure-responder/` | Responds to dbt Cloud job failures: creates a Jira bug ticket and triggers the SDD bug-fix workflow in scheduled mode. |
 | `skills/{spec-review,spec-debt,verify-this,ci-loop,quality-audit,pr-ergonomics,work-summary}/` | Optional side doors. Never injected into a one-line bug. |
 | `automations/ci-failure/` | Cloud automation config, prompt, runner, and setup guide for the CI failure responder. See [`set_up.md`](./automations/ci-failure/set_up.md). |
-| `hooks/hooks.json` | Context loading only: injects `AGENTS.md` and the context ledger at session start, and appends changed files to `.cortex/notes/session-log.md` at session end. Dual bash + PowerShell. |
 
 ### Design principle
 
@@ -36,7 +37,7 @@ reports so the main thread stays focused.
 Everything team-specific lives in **one place**: the **Project Profile** table at the top
 of `AGENTS.md`. The skills, sub-agents, and numbered rules are fully generic — they
 reference Profile values by name (layers, prefixes, naming pattern, surrogate macro,
-materializations, incremental threshold, macros location, lint config, specs location,
+materializations, incremental threshold, macros location, lint config,
 **base branch**, **ticketing**, **CI system**, **data-diff tool**, validation baseline,
 **context ledger**, **PR template**, **max file size**).
 
@@ -48,9 +49,7 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 
 - Cortex Code / Cortex Desktop. Cortex-only — no Cursor/other-IDE adapter.
 - `git` and the GitHub CLI (`gh`, authenticated) for the Ship phase.
-- `jq` on PATH for the hooks **on macOS/Linux** (the POSIX hook variants use it; the
-  Windows/PowerShell variants use built-in cmdlets and need no `jq`).
-- A dbt project with the base branch and specs directory set in your Project Profile.
+- A dbt project with the base branch set in your Project Profile.
 - A dbt data-diff package for `output-validator` — `audit_helper` (+ `dbt_utils`) by
   default; swap via the Profile's data-diff tool.
 - Optional: an MCP tool for your ticketing system; a CI system whose results surface as
@@ -59,32 +58,27 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 ## Install
 
 1. Copy `AGENTS.example.md` to the **root of your dbt repository** as `AGENTS.md`, then edit
-   the **Project Profile** block to match your team. (This is the live, enforced copy the
-   hooks and agents read.)
+   the **Project Profile** block to match your team. CoCo Desktop loads a workspace-root
+   `AGENTS.md` automatically as an instruction file.
 2. Install the plugin into Cortex (plugin manager, or place the `dbt-spec-driven/` directory
    where Cortex discovers plugins — `~/.snowflake/cortex/plugins/`).
 3. Start a session in your dbt repo and invoke the workflow (e.g. "fix bug …",
    "build feature …", or `/dbt-spec-driven:spec-driven`).
 
-> **Hooks run on macOS/Linux and Windows out of the box.** `hooks/hooks.json` registers
-> two variants of each hook — a POSIX (bash) command and a PowerShell command. Cortex runs
-> the shell appropriate to the OS; the non-matching variant fails silently (command not
-> found → no output), so a mixed-OS team needs no per-user configuration.
-
 ## The workflow
 
 1. **Discover** — read the code, lineage, ADRs and the nearest existing implementation of
    the same kind of change; confirm or disprove the ticket's assumptions with evidence.
-   Then pick the **light** or **full** route.
-2. **Specify / design** — `REQ-xxx` + tagged `VAL-xxx`. Light route: in the PR body and
-   ticket, no spec files. Full route (new models, grain changes, cross-domain joins,
-   semantic views, ADR territory, real design trade-offs): `spec-author` writes
-   `requirements.md` and `design.md`.
-3. **Implement** — code and tests that satisfy `AGENTS.md`.
+2. **Decide** — one question at a time: the decision, why it matters, the evidence,
+   options with consequences, and a recommendation. In scheduled mode the recommendation
+   is accepted and listed under "Decided unattended" in the PR. Ends with the agreed plan
+   (decisions, Done-when checks, schema) on the ticket.
+3. **Build** — code and tests that satisfy `AGENTS.md`, matching the precedent, with
+   `-- <ticket-id>:` comments where a decision shaped the code.
 4. **Validate output** — `output-validator` checks the data against the baseline and
    returns a report (not committed). Fingerprint/CLONE on refactors; Looker
-   reconciliation when a VAL names it.
-5. **Review** — `peer-reviewer` on two axes: Standards vs Spec, plus an advisory
+   reconciliation when a check names it.
+5. **Review** — `peer-reviewer` on two axes: Standards vs Plan, plus an advisory
    change-aware Architecture section (new concerns in the diff only).
 6. **Ship** — commit, push, open PR, interpret CI via `ci-interpreter`, answer automated
    review comments.
@@ -92,7 +86,8 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 ### Why there's so little enforcement
 
 Earlier versions had a hook-based lock (write-gate, ship-gate, a hash ledger of sub-agent
-output), grill notes, a discovery sub-agent and a test-author sub-agent. They were built
+output), grill notes, a discovery sub-agent, a test-author sub-agent, a spec-author
+sub-agent writing `requirements.md` and `design.md`, and session hooks. They were built
 for models that dropped steps on long tasks. Current models (Opus 5.5 and later) carry
 long multi-step work without that, and the scaffolding was costing time and tokens
 without catching the mistakes that actually happened — which were convention misses

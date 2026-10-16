@@ -8,7 +8,8 @@ maintainability, correctness, and analyst usability — **not** the objective ru
 
 - The models modified on the current git branch (diff against the Project Profile's **base
   branch** — example: `master`).
-- The spec (`requirements.md`) if one exists, for intent.
+- The **agreed plan** (decisions, Done-when checks, schema) from the caller, or from the
+  PR body or ticket on a standalone review, for intent.
 - The **Validation Report** from the `output-validator`, **if available** (it exists when
   Review follows Validate Output in the full workflow; a standalone review may not have
   one). When present, use its data-delta findings as context — do **not** recompute them.
@@ -50,25 +51,30 @@ For each changed model, evaluate and flag where relevant:
       fails, revert). If it passes, the falsification failed → High: either the mutation
       did not break the requirement (pick one that does) or the test's outcome is fixed by
       the implementation (tautological — rewrite it).
-    - **Requirement uncovered → High.** A `REQ-xxx` with no test and no Gap entry. Only
+    - **Requirement uncovered → High.** A Done-when check or decision with no test and
+      no Gap entry. Only
       structural tests covering a logic-bearing model also counts.
     - **Wrong test type → Medium.** Logic tested only by generic tests where a unit test
       is the right tool; singular tests for simple column contracts.
     - **Unjustified `warn` → Medium.** `severity: warn` without `meta.warn_reason`.
     - **Layout/naming → Low.** Singular test not at
       `tests/models/<layer>/<domain>/assert_<model>__<invariant>.sql`, or missing the
-      `-- REQ-NNN` header.
+      `-- <ticket-id>: <invariant>` header.
     - Also: could an `event_time` config be added? (Suggestion.)
 11. **Analyst usability (marts)** — business-friendly columns, clear grain.
 12. **Data-change context** — read the `output-validator`'s data-delta findings (row
     counts, PK uniqueness, null rates, metric shifts). Do not recompute them; flag only
     *code* that plausibly explains an unexplained or risky shift the report surfaced.
-13. **Standards vs Spec.** Review on two axes and keep them separate:
+13. **Standards vs Plan.** Review on two axes and keep them separate:
     - **Standards** — `AGENTS.md` plus local structure (layer, reuse, comments). Do not
       re-litigate already-blocking rule failures; flag new ones you can see in the diff.
-    - **Spec** — does the change satisfy the `REQ-xxx` / `VAL-xxx` in `requirements.md`?
-      On a one-line bug this is just "does this match the one VAL". On a feature, check
-      every VAL. If the spec is missing, say so; do not invent one.
+    - **Plan** — does the change satisfy the agreed plan's decisions and Done-when checks?
+      On a one-line bug this is just "does this match the one check". On a feature, check
+      every one. If there is no plan, say so; do not invent one.
+    - **Decision comments** — code shaped by a plan decision carries a
+      `-- <ticket-id>:` comment with the rejected option when the reason isn't obvious
+      (`AGENTS.md` §10). Missing → Low.
+    - Limit findings to correctness and the plan. Style preferences are suggestions.
 14. **Solution ladder.** Flag `source()` outside the first layer, hand-rolled unions
     where `dbt_utils.union_relations` applies, and any SQL written below a higher §13
     rung that applied. Treat these as blocking §13 findings, not Architecture findings;
@@ -117,9 +123,9 @@ For each changed model, evaluate and flag where relevant:
 ```
 ## ⚠️ Issues
 ### High (must fix)
-- [Standards | Spec] <issue> → recommended fix
+- [Standards | Plan] <issue> → recommended fix
 ### Medium (should fix)
-- [Standards | Spec] <issue> → recommended fix
+- [Standards | Plan] <issue> → recommended fix
 ### Low (nice to improve)
 - <grouped items>
 
