@@ -11,6 +11,47 @@
 
 ---
 
+## Decision loop replaces spec files (Cortex, October 2026)
+
+**Branch:** `chore/decision-loop`
+
+### Observations
+1. Full-route `requirements.md` / `design.md` were rarely read after merge. The reasons
+   behind the code lived in a directory nobody opened while editing that code.
+2. Questions at the spec and design gates restated settled decisions, or asked for a
+   choice without the evidence discovery had found. The user had to redo discovery to
+   answer them.
+3. The SessionStart hook injected `AGENTS.md`, which CoCo Desktop already loads as a
+   workspace instruction file, so the rules were in context twice.
+4. The skill described how to move through phases; Opus 5.5 does that unprompted. What
+   it lacked was a concrete picture of a good question, plan and PR.
+
+### Correct pattern
+- Discovery stays explicit and in the main thread.
+- Open decisions are settled one question at a time, each with decision, why it
+  matters, evidence, options with consequences, and a recommendation. Scheduled runs
+  accept the recommendation and list it under **Decided unattended** in the PR.
+- The agreed plan (decisions, Done-when checks, schema, risks) goes on the ticket and in
+  the PR body. No spec files and no state file.
+- Line-local decisions go in `-- <ticket-id>:` comments with the rejected option; model
+  decisions in the YAML `description`. No date or branch: `git blame` covers that.
+- `output-validator`, `peer-reviewer`, `ci-interpreter` stay as sub-agents.
+
+### Plugin actions taken
+| File | Change |
+|------|--------|
+| `skills/spec-driven/SKILL.md` | Rewritten: Discover, Decide (question format), Build as a quality bar, "What good looks like"; no light/full routing |
+| `agents/spec-author.md`, `hooks/hooks.json`, `specs/` | Removed |
+| `AGENTS.example.md` | §10 decision-comment format; §5a test header uses ticket ID; spec/notes Profile rows removed |
+| `agents/output-validator.md`, `peer-reviewer.md`, `semantic-view-author.md` | Take the agreed plan and Done-when checks instead of REQ/VAL and spec paths |
+| `references/scheduled-mode.md` | Accept recommendations; stop only for owner facts with no evidence |
+| `field-feedback.md` | Moved to `docs/`: maintainer history, not skill context |
+
+**Follow-up (dbt-pipelines):** ADR-007 line 67 still shows `-- REQ-005: ...` singular
+test headers. Align it with `-- <ticket-id>: <invariant>`.
+
+---
+
 ## DATA-1753 — Change-aware architecture review (Cortex, October 2026)
 
 **Ticket:** DATA-1753
@@ -249,7 +290,6 @@ were actually prevented or merely documented.
 2. Update the relevant agent/skill briefs — do not restate the full story in each file;
    point here and add only the enforceable rule.
 3. Bump `version` in `.cortex-plugin/plugin.json` and propagate to the installed copy.
-4. Optionally add a "Workflow friction" section to the ticket's spec directory.
 
 ### Template
 
@@ -258,7 +298,6 @@ were actually prevented or merely documented.
 
 **Ticket:** <TICKET-ID>
 **Branch:** `<branch-name>`
-**Spec:** `<specs>/<dir>/`
 
 ### Observations
 1. ...

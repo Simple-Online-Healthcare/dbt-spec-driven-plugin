@@ -1,6 +1,6 @@
 # Scheduled Mode Reference
 
-How the spec-driven workflow behaves when it runs unattended — from an automation, cron
+How the spec-driven workflow behaves when it runs unattended: from an automation, cron
 job, or CI trigger.
 
 ---
@@ -15,7 +15,7 @@ Ticket: DATA-456
 Intent: Fix the NULL order_ids appearing in the patient_orders mart.
 ```
 
-Without it, interactive mode (human gates) is assumed.
+Without it, interactive mode is assumed.
 
 ---
 
@@ -23,13 +23,32 @@ Without it, interactive mode (human gates) is assumed.
 
 | Aspect | Interactive | Scheduled |
 |--------|-------------|-----------|
-| Gates | `ask_user_question` | None — keep working while the work can advance |
-| Phases, sub-agents, `AGENTS.md` rules | As per route | Unchanged |
-| Missing decision | Ask the user | Comment on the ticket, leave `TODO(<ticket>)` notes, push the branch, stop |
-| Subjective validation criteria | Human sign-off | Report and stop before Ship |
+| Decide questions | Asked one at a time with `ask_user_question` | Not asked. The recommendation is accepted and listed under **Decided unattended** |
+| Phases, sub-agents, `AGENTS.md` rules | As in the skill | Unchanged |
+| Decision needing a fact someone else owns, with no evidence to recommend from | Ask who owns it | Comment on the ticket with the question, leave `TODO(<ticket>)` at the spot, push the branch, stop |
+| Needs-human validation checks | Human sign-off | Report and stop before Ship |
 | Repeated failure | Discuss with user | Stop after three attempts on the same problem |
-| CI waiting | Human may check in | One blocking `--watch` call with a timeout — don't poll |
+| CI waiting | Human may check in | One blocking `--watch` call with a timeout; don't poll |
 | PR merge | Never | Never |
+
+---
+
+## Accepting recommendations
+
+The questions are written exactly as they would be interactively (decision, why it
+matters, evidence, options, recommendation). Each one is then accepted and goes into the
+PR body:
+
+```
+## Decided unattended
+- **Which patients count as "new":** first order after exposure (38,412), not account
+  creation (41,090). Matches fct_retention. Evidence: dim_patients vs fct_orders
+  comparison, 2,678 mismatches.
+```
+
+The reviewer reads this section first. A recommendation that could only be a guess
+(nothing in the code or data supports any option) is not a recommendation. That's the
+owner-fact stop above.
 
 ---
 
@@ -41,13 +60,13 @@ anything. Put status notes alongside the next action and carry on.
 
 Stop only when nothing can move without a person:
 
-- A decision the ticket doesn't settle would change what gets built.
-- Validation has Subjective criteria.
+- A decision needs a fact someone else owns and there's no evidence to recommend from.
+- Validation has Needs-human checks.
 - The same problem has survived three fix attempts.
 - CI fails for data or infrastructure reasons (including failures also present on the
   base branch).
 
-When stopping, say what was done, what's blocked, and what's needed — on the ticket and
+When stopping, say what was done, what's blocked, and what's needed, on the ticket and
 in the final message.
 
 ---
@@ -56,7 +75,7 @@ in the final message.
 
 "Same problem" means the same failing test, the same build error, or the same
 peer-review issue after a fix. A different failure means the previous fix worked; it
-gets its own three attempts. No retry log file is needed — report the attempts in the
+gets its own three attempts. No retry log file is needed. Report the attempts in the
 final message (and on the ticket if stopping).
 
 ---
@@ -65,11 +84,11 @@ final message (and on the ticket if stopping).
 
 | Work | Suitability | Why |
 |------|-------------|-----|
-| Bug fix with a known correct value | Good | Objective validation |
+| Bug fix with a known correct value | Good | Objective checks |
 | Behaviour-preserving refactor | Good | Output must match the baseline |
-| Light-route feature following an existing pattern | Good | Objective criteria are usually available |
-| Feature with Subjective criteria | Poor | Will stop at validation |
-| Full-route feature with open design choices | Poor | Will stop for a decision |
+| Feature following an existing pattern | Good | Few decisions, and the precedent settles most |
+| Feature with Needs-human checks | Poor | Will stop at validation |
+| New approach with no precedent | Poor | Every decision is accepted unattended; expect heavy PR review |
 
 ---
 
@@ -80,20 +99,22 @@ Prompt: "Run the spec-driven workflow in mode: scheduled. Ticket: DATA-789.
 Fix: stg_orders produces duplicate rows due to missing dedup on the refresh timestamp."
 
 → Discover: reads stg_orders and its source, writes the failing query (412 dup keys),
-  finds the sibling stg_ model that already dedups the same way → light route
-→ Plan: REQ-001 no duplicate order_id; VAL-001 dup count = 0 (Objective); added to ticket
-→ Implement: adds QUALIFY dedup with comment; unique test on order_id; build + test pass
+  finds the sibling stg_ model that already dedups the same way
+→ Decide: the precedent settles the dedup key; no questions. Plan: Done when dup count
+  on order_id = 0 (Objective); added to ticket
+→ Build: QUALIFY dedup with a DATA-789 comment; unique test on order_id, seen to fail
+  before the fix; build + test pass
 → output-validator: Self-validatable YES, 412 rows removed, all were duplicates
 → peer-reviewer: no High/Medium; one Low logged to _issues.md
-→ Ship: commit, push, PR with REQ/VAL + validation summary; ci-interpreter PASS;
-  CodeRabbit replies posted; ticket moved to review
+→ Ship: PR with plan + validation summary; ci-interpreter PASS; CodeRabbit replies
+  posted; ticket moved to review
 ```
 
-## Example: stopping for a decision
+## Example: stopping for an owner fact
 
 ```
-→ Discover finds the ticket's "new patients only" could mean first order after exposure,
-  or account created after exposure — the two give different populations
-→ Comments on the ticket with both definitions and their row counts
-→ Leaves TODO(DATA-790) at the filter, pushes the branch, stops
+→ Discover: the ticket asks for revenue "net of partner fees"; no model or source
+  carries partner fee rates, and Finance owns the contract terms
+→ Comments on the ticket: the question, what was searched, who likely owns it
+→ Leaves TODO(DATA-790) at the revenue calculation, pushes the branch, stops
 ```

@@ -181,20 +181,20 @@ explores.
 ## Validation Criteria Template (Looker Reconciliation)
 
 WHERE a corresponding Looker explore exists for the semantic view under construction,
-the spec's Validation Criteria (Specify phase) MUST include a criterion reconciling
+the agreed plan (Decide step) MUST include a Done-when check reconciling
 against it — in addition to (not instead of) the standard dbt-model reconciliation:
 
 ```
-VAL-xxx (Objective, REQ-<id>): For a fixed period <date range>, the semantic view metric
+(Objective) For a fixed period <date range>, the semantic view metric
   <table>.<metric> reconciles to the equivalent Looker measure <explore>.<measure> within
   <tolerance, default 0>. Evidence: metric query result vs Looker measure query result,
   same period and filters, both values shown.
 ```
 
-`output-validator` executes this criterion as part of its normal data-delta step: run
+`output-validator` executes this check as part of its normal data-delta step: run
 the semantic view's metric for the period, run (or ask the user to run, if Looker access
 is not agent-available) the equivalent Looker measure for the same period, and compare.
-A tolerance above 0 must be justified in the spec (e.g. known timezone rounding) — default
+A tolerance above 0 must be justified in the plan (e.g. known timezone rounding) — default
 to exact match.
 
 ---

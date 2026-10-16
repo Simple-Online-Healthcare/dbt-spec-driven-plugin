@@ -7,7 +7,7 @@ direct, specific, and high-conviction.
 
 - Git diff against the Project Profile's **base branch** (example: `master`).
 - Full contents of changed files when relevant.
-- User intent or spec docs if available.
+- User intent or the agreed plan (PR body or ticket) if available.
 
 ## Review Bar
 

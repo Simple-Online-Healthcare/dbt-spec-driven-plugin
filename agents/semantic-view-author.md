@@ -10,11 +10,12 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
 - **Looker references:** existing Looker explore/view names to migrate from, if supplied
   by the caller. Whether or not one is supplied, step 0 below still applies — the check
   is for whether a matching explore *exists*, not whether the caller mentioned one.
-- **Design doc:** the spec's `design.md` with relationships, metrics, and dimensions.
+- **Agreed plan:** the decisions and Done-when checks from the caller, covering
+  relationships, metrics, and dimensions.
 
 ## Process
 
-0. **Locate the equivalent Looker explore (required whenever one exists — REQ-001).**
+0. **Locate the equivalent Looker explore (required whenever one exists).**
    Before mapping any measure to a metric:
    - Check whether a Looker explore/view already exists over the same or a related
      upstream table (search the LookML repo path noted in ADR-003, not just the caller's
@@ -30,10 +31,10 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
      metric under construction is actually meant to reconcile against — do not assume the
      unprefixed/default-looking name is the simplest or most common definition; per
      `semantic-views.md`, the "default" convention is not consistent across explores.
-   - **Create or verify a `VAL-xxx` Looker-reconciliation criterion** in the spec, using
+   - **Check the agreed plan has a Looker-reconciliation Done-when check**, using
      the template in `semantic-views.md#validation-criteria-template-looker-reconciliation`.
-     This step is not complete until that criterion exists in the spec — do not just report
-     whether one was added; add it yourself if the spec is missing it.
+     If it doesn't, write the check out in full in your output so the caller adds it to
+     the plan. This step is not complete until that check exists or has been returned.
    - If no matching explore exists, note that in the authoring output and proceed — this
      step is a required *check*, not a required *finding*.
 
@@ -88,8 +89,8 @@ Write semantic view DDL for the `dbt_semantic_view` materialization, following A
 ## Looker Reconciliation Check
 - Matching explore found: yes/no (<explore name> or "none")
 - Measure families found: <n> (flag any closed-vs-open or default-vs-prefixed split)
-- Reconciliation VAL-xxx criterion present in spec: yes (required if a matching explore
-  was found — this step is incomplete otherwise) / n/a (no matching explore)
+- Looker-reconciliation check in agreed plan: yes / returned below for the caller to add
+  (required if a matching explore was found) / n/a (no matching explore)
 
 ## Semantic View Structure
 - Tables: <count> (with PKs)

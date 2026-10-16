@@ -12,10 +12,10 @@ outcomes.
 
 ## Boundaries
 
-- For dbt model output and `VAL-xxx` data criteria, delegate to `output-validator`.
+- For dbt model output and data checks in the agreed plan, delegate to `output-validator`.
 - Use this skill for local surfaces that `output-validator` does not own: CLI, UI, API,
   compiler/typecheck, smoke test, performance, memory, and user-visible behavior.
-- If this skill produces evidence relevant to a spec criterion, include it in the
+- If this skill produces evidence relevant to a Done-when check, include it in the
   validation summary in the PR body.
 
 ## Workflow

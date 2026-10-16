@@ -1,255 +1,242 @@
 ---
 name: spec-driven
-description: "The dbt development workflow for this project. Use when: building a feature, fixing a bug, refactoring code, creating or implementing a spec, reviewing code, reviewing a PR, or documenting models. Triggers: spec-driven, new feature, build feature, fix bug, refactor, create spec, implement spec, review, code review, peer review, PR review, document model."
+description: "The dbt development workflow for this project. Use when: building a feature, fixing a bug, refactoring code, planning a change, reviewing code, reviewing a PR, or documenting models. Triggers: spec-driven, new feature, build feature, fix bug, refactor, plan change, review, code review, peer review, PR review, document model."
 tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "Task"]
 ---
 
 # Spec-Driven Development
 
-## Purpose
-
-The workflow for dbt work in this project: understand the problem and check the
-assumptions first, agree what "done" means (requirements + validation criteria), build
-against the rules in `AGENTS.md`, prove the data outcome, get an independent review, and
-ship through CI.
+dbt work in this project goes: find the facts, settle the decisions with the user one at a
+time, build to the standard in `AGENTS.md`, prove the data outcome, get an independent
+review, ship through CI.
 
 > **Authority:** `AGENTS.md` at the repo root holds the mandatory, blocking rules. This
 > skill points to them rather than restating them.
 
-The process scales with the work. A change that follows a pattern already in the repo
-does not need the paperwork a new model does. Pick the route first.
+No spec or design files are written to the repo. The agreed plan lives on the ticket while
+you work and in the PR body at ship. Decisions that explain a specific piece of code live
+next to that code.
+
+| Intent | Validation default |
+|--------|--------------------|
+| Feature, semantic view | Mixed: expect some Needs-human checks. `semantic-view-author` writes semantic view DDL. |
+| Bug fix | Objective: the correct value is known |
+| Refactor | Objective: output must be identical |
+| Standalone review | Go to **Review** on the current branch |
+| Standalone docs | Go to **Documentation** |
 
 ---
 
-## Routing
+## Start
 
-Two decisions: **what kind of work** (sets the validation default) and **how much
-process** (light or full).
-
-| Intent | Triggers | Validation default |
-|--------|----------|--------------------|
-| Feature | "build", "create", "add", "new feature" | Mixed — expect some Subjective criteria |
-| Semantic view | "semantic view", "cortex view", "semantic layer" | Mixed; `semantic-view-author` writes the DDL |
-| Bug fix | "fix", "bug", "broken", "incorrect" | Objective — the correct value is known |
-| Refactor | "refactor", "restructure", "clean up" | Objective — output must be identical |
-| Standalone review | "review", "code review", "review my PR" | Jump to **Review** on the current branch |
-| Standalone docs | "document", "add docs", "describe this model" | Jump to **Documentation** |
-
-### Light or full
-
-Decide after Discover, from what you found — not from the ticket wording.
-
-**Full** if any of these hold:
-- A new model, or a change to an existing model's grain or primary key.
-- A new join path across domains, or a change in layer dependencies.
-- A semantic view.
-- The design touches a domain with an ADR, or would warrant a new one.
-- There are two or more reasonable designs with real trade-offs.
-
-**Light** otherwise — typically a change that repeats an established in-repo pattern
-(e.g. one more metric on a model that already has several), a bug with a clear repro, or
-a behaviour-preserving refactor within one model.
-
-| | Light | Full |
-|---|---|---|
-| Spec files committed | None. REQ/VAL go in the PR body and the ticket. | `requirements.md` + `design.md` in the spec directory |
-| `spec-author` | Not used | Writes both documents |
-| Interactive gates | One plan gate before Implement; validation gate if Subjective; ship | Discover, Spec, Design, validation if Subjective, ship |
-
-If the work turns out bigger than it looked, move to full and say so. Don't move down
-silently.
-
----
-
-## Sub-agents
-
-Use these where context isolation actually helps — independent review, and long-running
-checks that would flood the main thread:
-
-- **`output-validator`** — checks the data outcome against the `VAL-xxx` criteria and
-  the production baseline. Returns a Validation Report in its reply.
-- **`peer-reviewer`** — independent Standards-vs-Spec review of the changed models. It
-  hasn't seen your reasoning, which is the point.
-- **`ci-interpreter`** — watches PR checks to completion and classifies failures.
-- **`spec-author`** — full route only: writes `requirements.md` and `design.md`.
-- **`semantic-view-author`** — semantic view DDL during Implement.
-
-Discovery and test writing happen in the main thread. Use an `explore` sub-agent for
-discovery only if the search is genuinely broad (many domains, unfamiliar area).
-
----
-
-## Starting a workflow
-
-Every feature/bug/refactor starts from a ticket in the Profile's **ticketing** system.
-
-1. Get the ticket ID. **Check for an existing branch or open PR for it** — a scheduled
-   run may already be on it.
-2. If the ticket is in "Backlog", move it to "Up Next" so it is on the board. Add the
-   `on-the-loop` label and move it to "AI Executing".
+1. Get the ticket ID from the Profile's **ticketing** system. Check for an existing
+   branch or open PR for it; a scheduled run may already be on it.
+2. If the ticket is in "Backlog", move it to "Up Next". Add the `on-the-loop` label and
+   move it to "AI Executing".
 3. Branch from the Profile's **base branch**:
    `git checkout <base_branch> && git pull && git checkout -b <ticket-id>-<slug>`.
    If the working tree is dirty, stash first and say so.
 
-(Standalone review and docs skip this and work on the current branch.)
+Standalone review and docs skip this and work on the current branch.
 
 ---
 
-## Phase: Discover
+## Discover
 
-Find the facts before proposing anything.
+Do this yourself, in the main thread. What you find here is what the questions are built
+from, so it has to be in your context.
 
-- Read the models, macros, sources and YAML the change touches, plus their upstream and
-  downstream lineage.
-- **Read the nearest existing implementation of the same kind of change** — a sibling
-  metric, a similar fix, a prior spec in the specs location — and follow its conventions
-  (file layout, one YAML per model, existing macros, test style). Most rework comes from
-  not doing this.
-- Check the ADR index for the domain. Note whether a precedent exists — an ADR or an
-  existing implementation of the same approach. This decides the route and whether an
-  ADR is needed.
-- Test every assumption in the ticket against the code or the data. Say which were
-  confirmed and which were wrong, with the query or file that shows it.
-- Bug route: write the failing query and check data coverage (`MIN`/`MAX`) on the
+- Read the context ledger named in the Profile, then the models, macros, sources and YAML
+  the change touches, plus their upstream and downstream lineage.
+- **Read the nearest existing implementation of the same kind of change** (a sibling
+  metric, a similar fix) and follow its conventions: file layout, one YAML per model,
+  existing macros, test style. Most rework comes from skipping this.
+- Check the ADR index for the domain. Note whether a precedent exists: an ADR, or an
+  in-repo implementation of the same approach.
+- Test every assumption in the ticket against the code or the data. Record which held and
+  which didn't, with the query or file that shows it.
+- Bugs: write the failing query and check coverage (`MIN`/`MAX`, null counts) on the
   columns involved.
-- Note anything that will shape the design — coverage gaps, grain mismatches, a value
-  living on a different entity than the ticket says. Raise these now, not at validation.
-- Check whether any model being changed is referenced by a semantic view (`ref('<model>')`
-  in a `materialized = 'semantic_view'` model). If so, note the semantic view as an
-  impacted dependency — it must be reviewed and potentially updated as part of this change.
-- If a fact you need is owned by someone else, stop that thread and ask; don't invent it.
+- Check whether a changed model is referenced by a semantic view (`ref('<model>')` in a
+  `materialized = 'semantic_view'` model). If so, the semantic view is in scope.
+- Note anything that shapes the design: coverage gaps, grain mismatches, a value living
+  on a different entity than the ticket says.
 
-If discovery surfaces undocumented models the change depends on, run the
-**Documentation** step for them.
-
-Then choose **light** or **full** and state why in one line.
+If discovery surfaces undocumented models the change depends on, run **Documentation**
+for them.
 
 ---
 
-## Phase: Specify and design
+## Decide
 
-Define "done" before writing code: EARS-style `REQ-xxx` requirements and `VAL-xxx`
-validation criteria, each `VAL` mapped to a `REQ` and marked **Objective** (checkable
-against ground truth) or **Subjective** (needs a human judgement).
+Turn what discovery left open into decisions, **one question at a time**, each with a
+recommendation.
 
-When a user has made a decision, carry it forward **in their words**. Don't widen it
-("graph only for stableID" is not "graph only for every ID type").
+**Which questions.** Only ones whose answer changes what gets built. Skip anything a
+precedent or ADR already settles and say which one settled it. Ask the questions other
+answers depend on first: grain before columns, population before metrics. A change that
+copies an existing pattern may need none.
 
-**Light route:** write the plan in your reply — the REQ/VAL list, the files you'll
-change, the expected schema change (columns added or changed, their types, and the
-grain, even if unchanged), and any risk from Discover. Pass that plan to
-`output-validator` for its schema check. Put the same REQ/VAL list in the ticket
-description and, later, the PR body. No spec files.
+**What a question must contain.** The user hasn't seen your discovery. Each question has
+to stand on its own:
 
-**Full route:** delegate to `spec-author` for `requirements.md`, then again for
-`design.md`. The design covers files to change, lineage, trade-offs, the `AGENTS.md`
-solution-ladder rung, and the ADR check (comply, or propose a superseding ADR). Specs
-live in the Profile's **specs location** as `<dd-mm-yy>-<name>/`. Update the ticket with
-the branch, requirement IDs and impacted models.
+- **Decision:** what is being chosen, in one line.
+- **Why it matters:** what changes downstream depending on the answer.
+- **Evidence:** the file, model or query you found, with the numbers.
+- **Options:** two to four, each with its concrete consequence.
+- **Recommendation:** one option, and why.
 
-**When to write an ADR.** ADRs record approaches; `design.md` records one change.
+Ask with `ask_user_question`, recommended option first. Carry each answer forward **in the
+user's words**. Don't widen it ("graph only for stableID" is not "graph only for every ID
+type"). If an answer reopens an earlier one, say so and re-ask that one.
 
-| Situation | Route | Written |
-|---|---|---|
-| Follows an existing precedent (ADR or in-repo pattern) | Light | PR body only |
-| New structure, but nothing others will copy or rely on (e.g. a one-off report mart) | Full | `requirements.md` + `design.md` |
-| No precedent for the approach, and other models will copy it or depend on its semantics (e.g. a new identity graph, key strategy, transformation technique) | Full | Spec files + a new ADR stated in general terms |
-| Departs from an existing ADR | Full | Spec files + a superseding ADR |
+If a fact needed for a decision is owned by someone else and there's no evidence to base a
+recommendation on, don't invent one. Ask who owns it.
 
-Write the ADR so it covers the general pattern, not this ticket: the next change of the
-same kind should find it in Discover and take the light route. `design.md` links to the
-ADR rather than restating it. In scheduled mode, draft the ADR as `Proposed` in the PR;
-a human accepts it.
+**The agreed plan.** When nothing left would change what gets built, write the plan in
+your reply and put it on the ticket:
 
----
+- **Decisions:** each one with its answer.
+- **Done when:** the checks that prove it, each marked **Objective** (checkable against
+  ground truth) or **Needs-human** (a judgement).
+- **Files:** what changes.
+- **Schema:** columns added or changed with types, and the grain, even if unchanged.
+- **Risks:** from discovery.
 
-## Phase: Implement
+This plan is what `output-validator` and `peer-reviewer` check against.
 
-1. Work through the plan or design.
-2. Comment non-obvious logic with the requirement it implements (`AGENTS.md` §10).
-3. Write tests as you go, against the requirement, not the implementation, following the
-   test rules in `AGENTS.md` §5/§5a. Name the seam the test guards, derive expectations
-   from the requirement before reading the SQL, don't write tests that can't fail, and
-   see each new non-structural test fail once against a broken input. Revert every
-   mutation (`git diff` on models shows only intended changes).
-4. Build and test the changed models.
-5. Check the change against `AGENTS.md` and fix any blocking violation.
+**ADRs.** ADRs record approaches that other changes will repeat. If there's no precedent
+for the approach and other models will copy it or depend on its semantics (a new identity
+graph, key strategy, transformation technique), write a new ADR stated in general terms,
+so the next change of the same kind finds it in discovery. If the plan departs from an
+existing ADR, write a superseding one. A one-off structure nobody will copy needs no ADR.
+In scheduled mode, draft the ADR as `Proposed` in the PR; a human accepts it.
 
 ---
 
-## Phase: Validate output
+## Build
 
-Delegate to `output-validator` with the changed models and the `VAL-xxx` criteria. It
-builds, checks schema, diffs against the Profile's **output-validation baseline**, and
-returns a report with **Self-validatable: YES / NO**.
+The standard, not a checklist:
 
-- **YES** (every criterion Objective and passed) → continue.
-- **NO** → present the impact summary and samples for each Subjective or failed
-  criterion and resolve it with the user. Fix and re-validate failed Objective criteria.
+- The change reads like the precedent you found: same layout, macros, naming and test
+  style.
+- It passes `AGENTS.md`. Fix any blocking violation before moving on.
+- **Decision comments.** Where a line is the way it is because of a decision from the
+  Decide step, and the reason isn't obvious from the code, comment it per `AGENTS.md` §10
+  with the ticket ID:
 
-Objective outcomes that should hold permanently become dbt tests.
+  ```sql
+  -- DATA-123: first order after exposure, not account creation; account creation
+  -- pulls in 2,678 pre-existing patients who never ordered in the window.
+  ```
 
-The report is working material. **Do not commit it.** Summarise the result in the PR body.
+  Only decisions about a specific line or block go in code. Grain, scope and model
+  purpose go in the model YAML `description`. Scope and out-of-scope go in the PR body.
+- **Tests** follow `AGENTS.md` §5/§5a. Each names the seam it guards, its expectation
+  comes from the agreed plan rather than from reading the SQL, and each new
+  non-structural test has been seen to fail once against a broken input. Revert every
+  mutation (`git diff` on models shows only intended changes).
+- Changed models build and their tests pass.
 
 ---
 
-## Phase: Review
+## Validate
 
-Delegate to `peer-reviewer` on the branch's changed models, passing the Validation
-Report summary. It returns High/Medium/Low issues, suggestions, and an advisory
-**Architecture** section (new concerns in the diff only; pre-existing debt is Context).
+Delegate to `output-validator` with the changed models and the agreed plan. It builds,
+checks the schema against the plan, diffs against the Profile's **output-validation
+baseline**, and returns a report with **Self-validatable: YES / NO**.
+
+- **YES** (every check Objective and passed): continue.
+- **NO**: show the impact summary and samples for each Needs-human or failed check and
+  resolve it with the user. Fix and re-validate failed Objective checks.
+
+Objective outcomes that should hold permanently become dbt tests. The report is working
+material. **Don't commit it.** Summarise the result in the PR body.
+
+---
+
+## Review
+
+Delegate to `peer-reviewer` on the branch's changed models, passing the agreed plan and
+the validation summary. It hasn't seen your reasoning, which is the point. It returns
+High/Medium/Low issues, suggestions, and an advisory **Architecture** section (concerns
+new in the diff only; pre-existing debt is Context).
 
 - Interactive: walk High and Medium issues with the user, offering a specific fix for
-  each. The user may decline. Architecture findings are advisory — raise them, do not
-  treat them as blockers.
-- Log every item not implemented — including declined Highs, with their severity, and
-  any Architecture "Introduced" items not acted on — to
-  `dbt/models/<folder>/<model>_issues.md` (append if it exists). For plugin-only
-  changes, use the nearest changed-path `_issues.md` or skip if there is no models
-  tree. `_issues.md` is open debt only, not a changelog.
+  each. The user may decline. Architecture findings are advisory.
+- Treat findings that don't affect correctness or the agreed plan as optional. Chasing
+  every finding produces defensive code and tests for cases that can't happen.
+- Log every item not implemented (including declined Highs with their severity, and
+  Architecture "Introduced" items not acted on) to `dbt/models/<folder>/<model>_issues.md`,
+  appending if it exists. For plugin-only changes, use the nearest changed-path
+  `_issues.md`, or skip if there is no models tree. `_issues.md` is open debt only, not a
+  changelog.
 
 ---
 
-## Phase: Ship
+## Ship
 
-1. Confirm models build and tests pass locally. Verify that all semantic views
-   referencing changed models have been reviewed or updated. Don't push a known-red branch.
-2. Stage only this change. Check `git status` before committing — no validation
-   reports, no unrelated files from a stash or another branch.
+1. Models build and tests pass locally. Semantic views referencing changed models have
+   been reviewed or updated. Don't push a known-red branch.
+2. Stage only this change. Check `git status` before committing: no validation reports,
+   no unrelated files from a stash or another branch.
 3. Commit with the ticket ID (`DATA-123: <summary>`), push, and open the PR from the
-   repo's template. The body carries the summary, the REQ/VAL list (light route) or
-   spec link (full route), and the validation result.
+   repo's template. The body carries the summary, the agreed plan (decisions, Done when,
+   schema), the validation result and, in scheduled mode, **Decided unattended**.
 4. Delegate to `ci-interpreter` to watch checks to completion.
-   - **PASS** → done.
-   - **FAIL (code/test)** → fix, re-push, re-check.
-   - **FAIL (data/infra)**, including failures that also fail on the base branch → say
-     so plainly with evidence and the suggested next action. Don't retry blindly.
-5. Address automated review comments (e.g. CodeRabbit): fix what's valid, reply to each
-   saying whether it was accepted and fixed, declined (with reason), or logged to
-   `_issues.md`. If a fix changes code, rerun the affected tests (and output validation
-   if the data could change), commit, push, and wait for CI to pass again.
+   - **PASS**: done.
+   - **FAIL (code/test)**: fix, re-push, re-check.
+   - **FAIL (data/infra)**, including failures that also fail on the base branch: say so
+     plainly with evidence and the suggested next action. Don't retry blindly.
+5. Address automated review comments (e.g. CodeRabbit): fix what's valid, and reply to
+   each saying whether it was accepted and fixed, declined (with reason), or logged to
+   `_issues.md`. If a fix changes code, rerun the affected tests (and output validation if
+   the data could change), commit, push, and wait for CI again.
 6. Move the ticket to the review status. Never merge.
 
 ---
 
-## Gates
+## Interactive and scheduled
 
-**Interactive (default).** At each gate for the route, show the artifact itself — the
-findings, the plan, the spec, the design — and ask with `ask_user_question`
-("Approve and proceed" / "Needs changes"), naming the phase ending and the one starting.
-Lead with risks and consequences, not with decisions restated as settled.
+**Interactive (default).** The human touchpoints are the Decide questions, Needs-human
+validation checks, High/Medium review issues, and the PR. Don't add approval gates
+between phases.
 
-**Scheduled** (`mode: scheduled` in the opening prompt). No questions. Keep going while
-the work can advance, and stop only when:
+**Scheduled** (`mode: scheduled` in the opening prompt). See `references/scheduled-mode.md`.
+In short: accept every recommendation and list each under **Decided unattended** in the PR
+body with its evidence. Stop only when:
 
-- a decision the ticket doesn't settle would change what gets built — comment on the
-  ticket with the specific question, leave `TODO(<ticket>)` notes on the branch, push it,
-  and stop;
-- validation returns Subjective criteria — report them and stop before Ship;
-- the same problem has survived three fix attempts — report what you tried and stop;
-- CI fails for data/infra reasons — report and stop.
+- a decision needs a fact someone else owns and there's no evidence to recommend from:
+  comment on the ticket with the question in the format above, leave `TODO(<ticket>)` at
+  the spot, push the branch, stop;
+- validation returns Needs-human checks: report them and stop before Ship;
+- the same problem has survived three fix attempts: report what you tried and stop;
+- CI fails for data/infra reasons: report and stop.
 
 Fix High peer-review issues; fix Medium where reasonable; log Low and suggestions.
+
+---
+
+## What good looks like
+
+**A question that works:**
+
+> **Decision:** which patients count as "new" for `fct_exposure_conversion`.
+> **Why it matters:** sets the denominator for every conversion rate on the dashboard.
+> **Evidence:** `dim_patients.created_at` and `fct_orders.first_order_at` disagree for
+> 2,678 of 41,090 exposed patients (query in thread); `fct_retention` uses first order.
+> **Options:** (a) first order after exposure: 38,412 patients, matches `fct_retention`;
+> (b) account created after exposure: 41,090, includes patients who never ordered.
+> **Recommendation:** (a), so the two marts agree and the denominator is people who
+> actually converted.
+
+**A question that doesn't:** "Should new patients be based on first order or account
+creation?" There's no evidence, no consequence and no recommendation, so the user has to
+redo the discovery to answer it.
+
+**A PR body:** summary; decisions with their answers; Done when with each check's
+result; schema change; validation result; Decided unattended (scheduled only);
+`_issues.md` entries added.
 
 ---
 
@@ -260,7 +247,7 @@ Follow `references/documentation.md`.
 
 - Describe **why** a model exists and what business question it answers, not a
   restatement of its columns (`AGENTS.md` §4).
-- Add column descriptions that carry business meaning.
+- Column descriptions carry business meaning.
 
 Keep it to the models in play.
 
@@ -282,5 +269,4 @@ Use only when asked or genuinely needed:
 
 `ci-failure-responder` is the scheduled dbt Cloud → ticket path; `ci-loop` is this PR.
 
-See also `references/scheduled-mode.md`, `references/field-feedback.md`,
-`references/project-context.md`.
+See also `references/scheduled-mode.md` and `references/project-context.md`.

@@ -11,14 +11,13 @@ not replace the canonical workflow in `skills/spec-driven/SKILL.md` (plugin-rela
 
 ## Scan
 
-Look for debt in these places. `<specs>` and `<models>` are the **specs location** and
-**models location** named in the AGENTS.md Project Profile (examples: `dbt/specs/`,
-`dbt/models/`).
+Look for debt in these places. `<models>` is the
+**models location** named in the AGENTS.md Project Profile (example: `dbt/models/`).
 
 - Tickets labelled `on-the-loop` that were stopped for a decision, and `TODO(<ticket>)`
   notes left on branches.
 - `<models>/**/*_issues.md` review items that remain unimplemented.
-- This plugin's `skills/spec-driven/references/field-feedback.md` entries whose plugin
+- This plugin's `docs/field-feedback.md` entries whose plugin
   actions imply future hardening. This file lives in the plugin, not the dbt repo.
   If the plugin directory cannot be reached, report
   `field-feedback.md unavailable (plugin directory not reachable)` instead of

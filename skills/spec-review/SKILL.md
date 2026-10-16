@@ -14,10 +14,9 @@ start quickly while still using the canonical spec-driven Review phase.
 1. Read `AGENTS.md` at the repo root. It remains the highest-authority rule source.
 2. Read `skills/spec-driven/SKILL.md` (paths in this skill are relative to this plugin's
    root), especially:
-   - `Routing` -> `Standalone Review`
-   - `Phase: Review`
-   - `Gate Protocol`
-3. Execute the canonical Standalone Review route exactly as written there.
+   - the intent table (Standalone review)
+   - `Review`
+3. Run the Review step as written there, against the agreed plan in the PR body or ticket.
 4. Delegate review work to `peer-reviewer` using the brief at `agents/peer-reviewer.md`
    (relative to this plugin's root); do not perform the peer review inline.
 5. If a Validation Report is missing, say so in the review context instead of recreating

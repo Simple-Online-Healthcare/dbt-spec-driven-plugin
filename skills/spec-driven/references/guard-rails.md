@@ -14,7 +14,7 @@ are met:
 |---|-----------|-----------|
 | 1 | **Objective validation** — the expected outcome has ground truth (row counts, column existence, test pass/fail, before/after identical) | If there's no way to mechanically verify correctness, the agent can't self-validate and will hard-stop. |
 | 2 | **Bounded scope** — the change touches a known, finite set of models/files with no cascading design decisions | Unbounded scope means the agent may make architectural choices that need human judgment. |
-| 3 | **Clear requirements** — the ticket specifies what should happen (EARS or equivalent), not just a problem statement | Vague tickets produce vague solutions. The agent needs unambiguous acceptance criteria. |
+| 3 | **Clear requirements** — the ticket specifies what should happen (an expected outcome), not just a problem statement | Vague tickets produce vague solutions. The agent needs unambiguous acceptance criteria. |
 | 4 | **No design authority needed** — the task doesn't require choosing between trade-offs, creating new patterns, or making schema decisions the team hasn't agreed on | Design decisions are inherently subjective; the agent should execute, not architect. |
 
 ### Eligible task types (with examples)
@@ -69,7 +69,7 @@ After the agent completes work and opens a PR, the ticket transitions to **Peer 
 
 **What the reviewer checks:**
 
-1. Does the PR satisfy the spec's requirements (`REQ-xxx`)? 
+1. Does the PR satisfy the agreed plan's decisions and Done-when checks?
 2. Do all tests pass (local + CI)?
 3. Does the Validation Report confirm data correctness?
 4. Does the code comply with `AGENTS.md`?
@@ -95,7 +95,7 @@ After the agent completes work and opens a PR, the ticket transitions to **Peer 
 
 1. On rejection, the ticket returns to **AI Executing** with the reviewer's comments
    attached.
-2. The agent reads the rejection comments and attempts a fix (same spec, adjusted
+2. The agent reads the rejection comments and attempts a fix (same plan, adjusted
    implementation).
 3. **Maximum 2 AI re-attempts** after the initial submission (3 total attempts including
    the first).
@@ -130,7 +130,7 @@ ownership at the point of merge.
 | Failure | Agent behavior | Human action needed |
 |---------|---------------|---------------------|
 | Same problem after 3 fix attempts | Stops; reports what was tried on the ticket | Pick up from the ticket comment; may need a different approach |
-| Subjective validation criteria found | Hard-stop immediately | Review the output and provide sign-off or redirect |
+| Needs-human validation checks found | Hard-stop immediately | Review the output and provide sign-off or redirect |
 | CI failure (data/infra, not code) | Hard-stop, surfaces classified failure | Investigate infra issue; re-trigger when resolved |
 | CI failure (code/test) | Retry (up to 3 attempts) | Only intervenes if retries exhaust |
 | Reviewer rejects 2× after initial | Escalate to manual | Human takes over the branch |

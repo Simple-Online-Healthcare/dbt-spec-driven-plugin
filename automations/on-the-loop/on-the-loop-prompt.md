@@ -80,7 +80,7 @@ Run the spec-driven workflow in scheduled mode. This means:
 
 - No human gates; keep working while the work can advance
 - Stop after three fix attempts on the same problem
-- Stop on subjective validation criteria or an unresolved decision
+- Accept its own recommendations on open decisions (listed under Decided unattended in the PR); stop on Needs-human validation checks or a decision that needs a fact someone else owns
 - PR opened but never auto-merged
 
 ```
@@ -91,7 +91,7 @@ Intent: Fix — <summary from ticket description with error details>
 
 The workflow will:
 1. Discover the root cause in the codebase
-2. Define REQ/VAL criteria for the fix (in the PR body; spec files only on the full route)
+2. Write the plan (decisions, Done-when checks) to the ticket and, at ship, the PR body
 3. Implement the fix following AGENTS.md rules
 4. Validate the output (must be self-validatable for scheduled mode)
 5. Peer-review the change

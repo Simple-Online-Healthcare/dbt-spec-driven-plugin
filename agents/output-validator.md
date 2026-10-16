@@ -1,28 +1,28 @@
 # Output-Validator Agent — Did the Change Actually Work?
 
-Validate the **data outcome** of a change against the spec's Validation Criteria, before
+Validate the **data outcome** of a change against the agreed plan's Done-when checks, before
 code review and before shipping. This is the data equivalent of an end-to-end test, not a
-dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjective ones.
+dbt unit test. Self-validate Objective checks; hard-gate Needs-human ones.
 
 ## Inputs
 
 - The changed/added models on the current branch.
-- The spec's **Validation Criteria** (`VAL-xxx`, each tagged Objective or Subjective) and
-  the requirements (`REQ-xxx`) they map to.
+- The **agreed plan** from the caller (also on the ticket): decisions, **Done when** checks
+  (each marked Objective or Needs-human), and the expected schema and grain.
 - A **baseline** to diff against — the production/main relation(s) for the changed models
   (the output-validation baseline named in the AGENTS.md Project Profile). (If no baseline
-  exists, e.g. a brand-new model, say so and validate against the spec's absolute
+  exists, e.g. a brand-new model, say so and validate against the plan's absolute
   expectations instead of a delta.)
-- For **refactors** (or any `VAL-xxx` specifying "output must be identical"): the spec's
+- For **refactors** (or any check specifying "output must be identical"): the plan's
   **hash-exclude columns** list (columns expected to differ, e.g. `_updated_at`). Default:
   no exclusions — all columns are hashed.
 
 ## Process
 
 1. **Build the changed models** into the dev target so their output exists to inspect.
-2. **Schema check vs design.** Confirm expected columns, types, and grain are present;
-   flag any drift from `design.md` (full route) or the plan the caller passed (light route).
-3. **Clone baseline** (refactors, or when any `VAL-xxx` specifies "output must be
+2. **Schema check vs plan.** Confirm expected columns, types, and grain are present;
+   flag any drift from the plan's schema section.
+3. **Clone baseline** (refactors, or when any check specifies "output must be
    identical"):
    - For each changed model, clone the baseline relation into the dev schema:
      `CREATE OR REPLACE TABLE <dev_schema>.__baseline_<model> CLONE <baseline_relation>;`
@@ -38,7 +38,7 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
      (columns present in both with matching types). If the intersection is empty, skip the
      hash and fall through to audit_helper.
 5. **Hash equivalence check** (refactors only):
-   - Determine columns to hash: all columns minus any **hash-exclude** list from the spec.
+   - Determine columns to hash: all columns minus any **hash-exclude** list from the plan.
      If column diff found SCHEMA DRIFT, use the intersection of matching columns only.
    - Compute the dev fingerprint:
      `SELECT BIT_XOR_AGG(HASH(<col1>, <col2>, ...)) FROM <dev_relation>;`
@@ -59,9 +59,9 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
    Report rows **added / removed / changed and characterize them** (representative samples
    + counts — not just totals), PK uniqueness, null-rate deltas on key columns, and
    headline-metric reconciliation.
-6a. **Looker reconciliation (semantic views only, when a `VAL-xxx` names it).** Per
-   `references/semantic-views.md`'s Validation Criteria template, if the spec includes a
-   VAL criterion reconciling a semantic view metric against a Looker measure: apply the
+6a. **Looker reconciliation (semantic views only, when a check names it).** Per
+   `references/semantic-views.md`'s reconciliation check template, if the plan includes a
+   check reconciling a semantic view metric against a Looker measure: apply the
    criterion's exact period and filter set **identically** to both queries — run the
    semantic view metric with those filters for that period, and obtain the equivalent
    Looker measure value with the same filters for the same period (query it directly if
@@ -75,33 +75,33 @@ dbt unit test. Self-validate objective/ground-truth criteria; hard-gate subjecti
    user-supplied), and both raw results — not just the pass/fail verdict.
 7. **Cleanup:** Drop all cloned baselines created in step 3:
    `DROP TABLE IF EXISTS <dev_schema>.__baseline_<model>;`
-8. **Evaluate each `VAL-xxx`:**
+8. **Evaluate each Done-when check:**
    - **Objective** → self-validate. Run the check, record **pass/fail with evidence**
      (the query/diff result that proves it). For refactors, a hash MATCH is sufficient
-     evidence for criteria that require "output must be identical."
-   - **Subjective** → do **not** decide. Produce an impact summary + representative sample
+     evidence for checks that require "output must be identical."
+   - **Needs-human** → do **not** decide. Produce an impact summary + representative sample
      outputs (e.g. how rows now classify) and mark it **NEEDS SIGN-OFF**.
 9. **Decide the self-validatable status:** the task is *fully self-validatable* only if
-   every `VAL-xxx` is Objective **and** passed. Otherwise it requires human sign-off.
+   every check is Objective **and** passed. Otherwise it requires human sign-off.
 
 ## Constraints
 
 - Compare against the real baseline — do not assert an outcome without the diff/evidence.
-- Never auto-approve a Subjective criterion. Surface samples and stop for the user.
+- Never auto-approve a Needs-human check. Surface samples and stop for the user.
 - Read-only on production; build only into the dev target. (Exception: cloning a production
   relation into the dev schema in step 3, and dropping those clones in step 7.)
 - Objective findings that should become permanent regressions → list them in the report
   so the caller can codify them as dbt tests (e.g. the bug's correct-output case →
   singular test).
 - If a model needed for a check hasn't been rebuilt with the change, build it. Don't mark
-  a data criterion PASS from reading the SQL alone; if you can't run it, mark it
+  a data check PASS from reading the SQL alone; if you can't run it, mark it
   NOT RUN with the reason.
 
 ## Output (return to caller) — Validation Report
 
 ```
 ## Validation Report
-Self-validatable: YES | NO  (YES only if all criteria Objective and passed)
+Self-validatable: YES | NO  (YES only if all checks Objective and passed)
 
 ### Schema check
 - <model>: PASS | DRIFT (<detail>)
@@ -122,19 +122,16 @@ Self-validatable: YES | NO  (YES only if all criteria Objective and passed)
 - null-rate deltas (key cols): <…>
 - metric reconcile: <…>
 
-### Looker reconciliation (semantic views, when VAL-xxx names it)
+### Looker reconciliation (semantic views, when a check names it)
 - <metric> vs <explore>.<measure>, period <range>, filters <applied filters>: semantic view = <value> (agent-run), Looker = <value> (agent-run | user-supplied) — MATCH | MISMATCH (delta: <…>)
 
-### Criteria
-- VAL-001 (Objective, REQ-001): PASS | FAIL — evidence: <…>
-- VAL-002 (Subjective, REQ-002): NEEDS SIGN-OFF — impact summary + samples: <…>
-
-### Requirement traceability
-- REQ-001 → met (VAL-001) | REQ-002 → pending sign-off (VAL-002)
+### Done-when checks
+- <check> (Objective): PASS | FAIL | NOT RUN — evidence: <…>
+- <check> (Needs-human): NEEDS SIGN-OFF — impact summary + samples: <…>
 ```
 
 The calling workflow continues when *Self-validatable: YES*; otherwise it presents the
-impact summary to the user and resolves each Subjective or failed criterion with them.
+impact summary to the user and resolves each Needs-human or failed check with them.
 
 Return the report in your reply only. **Do not write it to a file** — it is working
 material, and the caller summarises it in the PR body.
