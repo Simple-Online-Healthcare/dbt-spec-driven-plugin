@@ -63,7 +63,7 @@ echo "  Workspace:     USER\$${SF_USER}.PUBLIC.DEFAULT\$ (/_ci_secrets.env)"
 echo "  Prompt:        ${SCRIPT_DIR}/on-the-loop-prompt.md"
 echo "  Repo:          $REPO_URL"
 echo "  Jira domain:   $JIRA_DOMAIN"
-echo "  Schedule:      weekdays at 9am Europe/London"
+echo "  Schedule:      weekdays at 8:30am Europe/London"
 echo ""
 read -p "Continue? [y/N] " -r
 [[ $REPLY =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
@@ -83,7 +83,7 @@ echo "Creating automation..."
 cortex automation create \
   --name on_the_loop_responder \
   --prompt-file "$PROMPT_TMP" \
-  --schedule "weekdays at 9am" \
+  --schedule "weekdays at 8:30am" \
   --timezone Europe/London \
   --github "${GITHUB_SECRET}" \
   --pre-run-hook "source /workspace/_ci_secrets.env && cd /workspace && git clone ${REPO_URL} repo && cd repo" \

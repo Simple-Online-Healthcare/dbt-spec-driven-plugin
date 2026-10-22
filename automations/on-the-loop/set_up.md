@@ -2,7 +2,7 @@
 
 ## Overview
 
-The on-the-loop automation runs every weekday at 9am and picks up Jira bug
+The on-the-loop automation runs every weekday at 8:30am and picks up Jira bug
 tickets labelled `on-the-loop` + `code_test`. It invokes the spec-driven
 workflow in scheduled mode to autonomously fix the issue, open a PR, and
 report back on the ticket.
@@ -68,7 +68,7 @@ cortex automation drop on_the_loop_responder
 CI Failure Check (8am daily)
   └─ Creates Jira bug tickets with labels: on-the-loop, code_test, ci-failure
 
-On-the-Loop (9am weekdays)
+On-the-Loop (8:30am weekdays)
   └─ Queries Jira for eligible tickets (on-the-loop + code_test, in "Up Next")
   └─ For each ticket:
       ├─ Transitions to "AI Executing"

@@ -10,11 +10,16 @@ workflow in scheduled mode to fix them.
 
 ## Step 1 — Set up the workspace
 
+**Before doing anything else**, source the secrets file and clone the repo:
+
 ```bash
+source /workspace/_ci_secrets.env
 cd /workspace
-git clone https://github.com/your-org/your-dbt-project.git repo
-cd repo
+if [ -d repo ]; then cd repo && git fetch --all && git reset --hard origin/master; else git clone https://github.com/your-org/your-dbt-project.git repo && cd repo; fi
 ```
+
+Verify that `JIRA_TOKEN_B64` is set (do not print the value). If it is not set,
+stop and report that the secrets file is missing or incomplete.
 
 Read `AGENTS.md` in the repo root — it contains the mandatory engineering rules
 for all dbt work. Obey them throughout.
