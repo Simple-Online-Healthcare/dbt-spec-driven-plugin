@@ -1,6 +1,6 @@
 ---
 name: spec-driven
-description: "The dbt development workflow for this project. Use when: building a feature, fixing a bug, refactoring code, planning a change, reviewing code, reviewing a PR, or documenting models. Triggers: spec-driven, new feature, build feature, fix bug, refactor, plan change, review, code review, peer review, PR review, document model."
+description: "The dbt development workflow for this project. Use when: building a feature, fixing a bug, refactoring code, planning a change, reviewing code, reviewing a PR, documenting models, or building or migrating a Lightdash dashboard. Triggers: spec-driven, new feature, build feature, fix bug, refactor, plan change, review, code review, peer review, PR review, document model, lightdash, lightdash dashboard, migrate looker dashboard."
 tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "Task"]
 ---
 
@@ -24,6 +24,7 @@ next to that code.
 | Refactor | Objective: output must be identical |
 | Standalone review | Go to **Review** on the current branch |
 | Standalone docs | Go to **Documentation** |
+| Dashboard (Lightdash) | Mixed: parity is Objective, layout is Needs-human. Follow `references/lightdash.md`; `dashboard-validator` replaces `output-validator`. Metric gaps go to `semantic-view-author` in the dbt repo. |
 
 ---
 
