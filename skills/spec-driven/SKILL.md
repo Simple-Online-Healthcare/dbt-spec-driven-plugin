@@ -192,7 +192,10 @@ new in the diff only; pre-existing debt is Context).
    each saying whether it was accepted and fixed, declined (with reason), or logged to
    `_issues.md`. If a fix changes code, rerun the affected tests (and output validation if
    the data could change), commit, push, and wait for CI again.
-6. Move the ticket to the review status. Never merge.
+6. Give the user a one-line verdict on each **advisory finding** `ci-interpreter`
+   returned: acted on, not relevant (with the reason), or logged to `_issues.md`. Don't
+   drop one silently. In scheduled mode, put the verdicts in the PR body.
+7. Move the ticket to the review status. Never merge.
 
 ---
 
