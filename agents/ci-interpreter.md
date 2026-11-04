@@ -29,6 +29,11 @@ actionable summary. Do not guess — report only what the checks actually say.
    system runs (e.g. Deep Hub null/uniqueness or AI data-output checks).
 4. **Classify** each failure: `code/test` (fixable here), `data` (upstream/source), or
    `infra/transient` (retry candidate).
+5. **Collect advisory findings:** everything CI reports that does not gate the merge.
+   That covers bot reports posted on the PR by checks (e.g. a model-overlap detector, a
+   dbt Cloud compare-changes table), and warnings from passing checks on files the PR
+   changes (e.g. lint warnings). List each with what it flagged. Don't dismiss one as
+   expected or harmless; report it and leave the verdict to the caller.
 
 ## Constraints
 
@@ -45,6 +50,9 @@ PR: <url>
 ## Failed checks (if any)
 - <check name> → <failing model/test> → <root error line>
   classification: code/test | data | infra
+
+## Advisory findings (if any)
+- <check or bot name> → <what it flagged: models, files, numbers>
 
 ## Recommended next action
 - <fix here / investigate upstream / retry>

@@ -81,7 +81,7 @@ divergent forks. The values shipped in `AGENTS.example.md` are a worked example.
 5. **Review** — `peer-reviewer` on two axes: Standards vs Plan, plus an advisory
    change-aware Architecture section (new concerns in the diff only).
 6. **Ship** — commit, push, open PR, interpret CI via `ci-interpreter`, answer automated
-   review comments.
+   review comments, and give a verdict on each advisory CI finding (e.g. model overlap).
 
 ### Why there's so little enforcement
 
