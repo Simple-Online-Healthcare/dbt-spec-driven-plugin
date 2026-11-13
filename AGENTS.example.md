@@ -76,6 +76,11 @@ The layers and their order are defined in the Project Profile
 - Column conventions:
   - Booleans → `is_` / `has_` / `was_`
   - Timestamps → `*_at`
+  - Event tables (one row per tracked or logged event) may use `*_tstamp` instead. The
+    time the event happened is `event_tstamp`; collection and load times keep the
+    source's own names (e.g. Snowplow `collector_tstamp`, `dvce_created_tstamp`,
+    `load_tstamp`). Applies to new or changed event-table columns; existing event-time
+    columns (`occurred_at`, Snowplow `derived_tstamp`) are not renamed for it.
   - Dates → `*_date`
   - Surrogate keys → `*_sk`
   - Foreign keys → match the parent key name
