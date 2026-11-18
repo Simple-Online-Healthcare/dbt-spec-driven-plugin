@@ -111,6 +111,23 @@ For each changed model, evaluate and flag where relevant:
     that creates the concern. Architecture findings are advisory: they do not fail
     the review on their own.
 
+### Lightdash (dashboards repo diffs only)
+
+When the diff touches `lightdash/`, `generator/` or `tests/parity/` in the dashboards
+repo, also check these. The dashboards repo's `AGENTS.md` holds the blocking rules, so
+don't restate them. Look for intent-level problems they can't catch:
+
+- **Logic leaking into Lightdash.** A table calculation, custom metric or chart filter
+  that changes what a number means (not just how it's shown). It belongs in the
+  semantic view. **High.**
+- **Parity test that doesn't test the chart.** Different date window, timezone bucketing,
+  filters or variant from what the chart shows. **High.**
+- **Silent fanout.** An order-grain metric shown with an item-grain dimension through a
+  join. **High.**
+- **Tile variants collapsed or dropped** without being in the agreed plan. **Medium.**
+- **Chart naming and description** don't say which Looker tile it replaces or which
+  semantic-view metrics it uses. **Low.**
+
 ## Constraints
 
 - Be specific and actionable; no vague or style-only feedback.

@@ -46,6 +46,7 @@
 | PR template | `.github/pull_request_template.md` |
 | Context ledger | `docs/data-team-context.md` (durable glossary in the **dbt repo**, not this plugin). Read it before planning any change. |
 | Downstream consumer repos | the BI/semantic-layer repo and any pipeline repo reading these models |
+| Dashboards repo | Lightdash dashboards-as-code repo (example: `Simple-Online-Healthcare/lightdash-dashboards`). Its `AGENTS.md` holds the Lightdash rules; its models are generated from the semantic views (see `references/lightdash.md`) |
 | Handoff location | `docs/model-context-handoffs/` |
 | Max file size | ~1000 lines (structural review threshold) |
 | ADR location | `architecture/decisions/` — index and governance rules in its README |
