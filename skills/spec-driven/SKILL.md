@@ -188,10 +188,13 @@ new in the diff only; pre-existing debt is Context).
    - **FAIL (code/test)**: fix, re-push, re-check.
    - **FAIL (data/infra)**, including failures that also fail on the base branch: say so
      plainly with evidence and the suggested next action. Don't retry blindly.
-5. Address automated review comments (e.g. CodeRabbit): fix what's valid, and reply to
-   each saying whether it was accepted and fixed, declined (with reason), or logged to
-   `_issues.md`. If a fix changes code, rerun the affected tests (and output validation if
-   the data could change), commit, push, and wait for CI again.
+5. Resolve every CodeRabbit comment (and other automated reviewer comments) on the PR.
+   Follow the **CodeRabbit resolution** section of the `ci-loop` skill: each comment ends
+   as **Fixed**, **Logged** to `_issues.md` (minor), or **Rejected** (with a reason). None
+   is left unanswered. Reply on each thread with its outcome. Report every rejection and
+   its reason in the session so the operator can overrule it. If a fix changes code, rerun
+   the affected tests (and output validation if the data could change), commit, push, wait
+   for CI again, and pick up any new CodeRabbit comments from that push.
 6. Give the user a one-line verdict on each **advisory finding** `ci-interpreter`
    returned: acted on, not relevant (with the reason), or logged to `_issues.md`. Don't
    drop one silently. In scheduled mode, put the verdicts in the PR body.
