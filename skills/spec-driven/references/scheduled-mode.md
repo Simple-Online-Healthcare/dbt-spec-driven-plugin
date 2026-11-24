@@ -106,7 +106,7 @@ Fix: stg_orders produces duplicate rows due to missing dedup on the refresh time
   before the fix; build + test pass
 → output-validator: Self-validatable YES, 412 rows removed, all were duplicates
 → peer-reviewer: no High/Medium; one Low logged to _issues.md
-→ Ship: PR with plan + validation summary; ci-interpreter PASS; CodeRabbit replies
+→ Ship: PR with plan + validation summary; ci-interpreter PASS; every CodeRabbit comment fixed, logged or rejected, rejections listed in the PR body
   posted; advisory overlap finding given a verdict in the PR body; ticket moved to review
 ```
 
